@@ -1,0 +1,334 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Master Data Tables
+model m_unit {
+  unit_id    Int         @id @default(autoincrement())
+  unit_code  String      @unique @db.VarChar(50)
+  unit_name  String      @db.VarChar(100)
+  is_active  Boolean     @default(true)
+  created_at DateTime    @default(now())
+  updated_at DateTime    @updatedAt
+  products   m_product[]
+}
+
+model m_brand {
+  brand_id   Int         @id @default(autoincrement())
+  brand_code String      @unique @db.VarChar(50)
+  brand_name String      @db.VarChar(100)
+  is_active  Boolean     @default(true)
+  created_at DateTime    @default(now())
+  updated_at DateTime    @updatedAt
+  products   m_product[]
+}
+
+model m_supplier {
+  supplier_id       Int          @id @default(autoincrement())
+  supplier_code     String       @unique @db.VarChar(50)
+  supplier_name     String       @db.VarChar(150)
+  address           String?      @db.Text
+  city_name         String?      @db.VarChar(100)
+  phone             String?      @db.VarChar(50)
+  contact_person    String?      @db.VarChar(100)
+  payment_term_days Int          @default(0)
+  notes             String?      @db.Text
+  is_active         Boolean      @default(true)
+  created_at        DateTime     @default(now())
+  updated_at        DateTime     @updatedAt
+  purchases         t_purchase[]
+}
+
+model m_customer {
+  customer_id   Int        @id @default(autoincrement())
+  customer_code String     @unique @db.VarChar(50)
+  customer_name String     @db.VarChar(150)
+  address       String?    @db.Text
+  city_name     String?    @db.VarChar(100)
+  phone         String?    @db.VarChar(50)
+  notes         String?    @db.Text
+  is_active     Boolean    @default(true)
+  created_at    DateTime   @default(now())
+  updated_at    DateTime   @updatedAt
+  sales         t_sales[]
+}
+
+model m_product {
+  product_id          Int               @id @default(autoincrement())
+  product_code        String            @unique @db.VarChar(50)
+  product_name        String            @db.VarChar(200)
+  unit_id             Int
+  brand_id            Int?
+  product_description String?           @db.Text
+  cost_price          Decimal           @default(0.00) @db.Decimal(15, 2)
+  minimum_stock       Int               @default(0)
+  is_active           Boolean           @default(true)
+  created_at          DateTime          @default(now())
+  updated_at          DateTime          @updatedAt
+  
+  unit                m_unit            @relation(fields: [unit_id], references: [unit_id], onUpdate: Restrict, onDelete: Restrict)
+  brand               m_brand?          @relation(fields: [brand_id], references: [brand_id], onUpdate: Restrict, onDelete: Restrict)
+  prices              m_product_price[]
+  stock               m_product_stock?
+  movements           t_stock_movement[]
+  purchase_details    t_purchase_detail[]
+  sales_details       t_sales_detail[]
+  return_details      t_sales_return_detail[]
+}
+
+model m_product_price {
+  product_price_id Int           @id @default(autoincrement())
+  product_id       Int
+  price_level_id   Int           @db.TinyInt
+  price_amount     Decimal       @db.Decimal(15, 2)
+  created_at       DateTime      @default(now())
+  updated_at       DateTime      @updatedAt
+
+  product          m_product     @relation(fields: [product_id], references: [product_id], onUpdate: Cascade, onDelete: Cascade)
+  price_level      m_price_level @relation(fields: [price_level_id], references: [price_level_id], onUpdate: Restrict, onDelete: Restrict)
+
+  @@unique([product_id, price_level_id])
+}
+
+model m_price_level {
+  price_level_id   Int               @id @db.TinyInt
+  price_level_code String            @unique @db.VarChar(50)
+  price_level_name String            @db.VarChar(100)
+  is_active        Boolean           @default(true)
+  created_at       DateTime          @default(now())
+  updated_at       DateTime          @updatedAt
+  product_prices   m_product_price[]
+}
+
+model m_role {
+  role_id    Int           @id @default(autoincrement())
+  role_code  String        @unique @db.VarChar(50)
+  role_name  String        @db.VarChar(100)
+  is_active  Boolean       @default(true)
+  created_at DateTime      @default(now())
+  updated_at DateTime      @updatedAt
+  users      m_user[]
+  role_menus m_role_menu[]
+}
+
+model m_user {
+  user_id        Int                @id @default(autoincrement())
+  role_id        Int
+  full_name      String             @db.VarChar(150)
+  username       String             @unique @db.VarChar(50)
+  password_hash  String             @db.VarChar(255)
+  is_active      Boolean            @default(true)
+  last_login_at  DateTime?
+  created_at     DateTime           @default(now())
+  updated_at     DateTime           @updatedAt
+  
+  role           m_role             @relation(fields: [role_id], references: [role_id], onUpdate: Restrict, onDelete: Restrict)
+  purchases      t_purchase[]
+  sales          t_sales[]
+  returns        t_sales_return[]
+  stock_movements t_stock_movement[]
+}
+
+model m_menu {
+  menu_id        Int           @id @default(autoincrement())
+  parent_menu_id Int?
+  menu_code      String        @unique @db.VarChar(50)
+  menu_name      String        @db.VarChar(100)
+  route_path     String?       @db.VarChar(255)
+  sort_order     Int           @default(0)
+  is_active      Boolean       @default(true)
+  created_at     DateTime      @default(now())
+  updated_at     DateTime      @updatedAt
+
+  parent         m_menu?       @relation("MenuHierarchy", fields: [parent_menu_id], references: [menu_id], onUpdate: Restrict, onDelete: Restrict)
+  children       m_menu[]      @relation("MenuHierarchy")
+  role_menus     m_role_menu[]
+}
+
+model m_role_menu {
+  role_id    Int
+  menu_id    Int
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  role       m_role   @relation(fields: [role_id], references: [role_id], onUpdate: Cascade, onDelete: Cascade)
+  menu       m_menu   @relation(fields: [menu_id], references: [menu_id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@id([role_id, menu_id])
+}
+
+// Transaction Tables
+model t_purchase {
+  purchase_id             Int                 @id @default(autoincrement())
+  purchase_number         String              @unique @db.VarChar(50)
+  purchase_datetime       DateTime
+  supplier_id             Int
+  supplier_name_snapshot  String              @db.VarChar(150)
+  supplier_invoice_number String?             @db.VarChar(100)
+  created_by_user_id      Int
+  created_by_name_snapshot String             @db.VarChar(150)
+  total_amount            Decimal             @db.Decimal(15, 2)
+  notes                   String?             @db.Text
+  created_at              DateTime            @default(now())
+  updated_at              DateTime            @updatedAt
+
+  supplier                m_supplier          @relation(fields: [supplier_id], references: [supplier_id], onUpdate: Restrict, onDelete: Restrict)
+  creator                 m_user              @relation(fields: [created_by_user_id], references: [user_id], onUpdate: Restrict, onDelete: Restrict)
+  details                 t_purchase_detail[]
+}
+
+model t_purchase_detail {
+  purchase_detail_id   Int        @id @default(autoincrement())
+  purchase_id          Int
+  line_number          Int
+  product_id           Int
+  product_code_snapshot String     @db.VarChar(50)
+  product_name_snapshot String     @db.VarChar(200)
+  unit_name_snapshot   String     @db.VarChar(100)
+  quantity             Int
+  purchase_unit_price  Decimal    @db.Decimal(15, 2)
+  line_total           Decimal    @db.Decimal(15, 2)
+  created_at           DateTime   @default(now())
+  updated_at           DateTime   @updatedAt
+
+  purchase             t_purchase @relation(fields: [purchase_id], references: [purchase_id], onUpdate: Cascade, onDelete: Cascade)
+  product              m_product  @relation(fields: [product_id], references: [product_id], onUpdate: Restrict, onDelete: Restrict)
+
+  @@unique([purchase_id, product_id])
+}
+
+model m_product_stock {
+  product_id     Int       @id
+  stock_quantity Int       @default(0)
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  product        m_product @relation(fields: [product_id], references: [product_id], onUpdate: Cascade, onDelete: Cascade)
+}
+
+model t_stock_movement {
+  stock_movement_id   Int      @id @default(autoincrement())
+  product_id          Int
+  movement_type       String   @db.VarChar(50) // 'PURCHASE_IN', 'SALES_OUT', 'SALES_RETURN_IN'
+  reference_number    String   @db.VarChar(50)
+  reference_id        Int
+  reference_detail_id Int
+  quantity_in         Int      @default(0)
+  quantity_out        Int      @default(0)
+  unit_cost           Decimal  @db.Decimal(15, 2)
+  created_by_user_id  Int
+  created_at          DateTime @default(now())
+
+  product             m_product @relation(fields: [product_id], references: [product_id], onUpdate: Restrict, onDelete: Restrict)
+  user                m_user    @relation(fields: [created_by_user_id], references: [user_id], onUpdate: Restrict, onDelete: Restrict)
+}
+
+model t_sales {
+  sales_id               Int               @id @default(autoincrement())
+  sales_number           String            @unique @db.VarChar(50)
+  sales_type             String            @db.VarChar(50) // 'BENGKEL', 'ECERAN'
+  sales_datetime         DateTime
+  customer_id            Int?
+  customer_name_snapshot String?           @db.VarChar(150)
+  cashier_user_id        Int
+  cashier_name_snapshot  String            @db.VarChar(150)
+  subtotal               Decimal           @db.Decimal(15, 2)
+  discount_amount        Decimal           @default(0.00) @db.Decimal(15, 2)
+  total_amount           Decimal           @db.Decimal(15, 2)
+  payment_status         String            @db.VarChar(50) // 'UNPAID', 'PARTIAL', 'PAID'
+  transaction_status     String            @db.VarChar(50) // 'DRAFT', 'COMPLETED', 'CANCELLED'
+  created_at             DateTime          @default(now())
+  updated_at             DateTime          @updatedAt
+
+  customer               m_customer?       @relation(fields: [customer_id], references: [customer_id], onUpdate: Restrict, onDelete: Restrict)
+  cashier                m_user            @relation(fields: [cashier_user_id], references: [user_id], onUpdate: Restrict, onDelete: Restrict)
+  details                t_sales_detail[]
+  payments               t_sales_payment[]
+  returns                t_sales_return[]
+}
+
+model t_sales_detail {
+  sales_detail_id      Int            @id @default(autoincrement())
+  sales_id             Int
+  line_number          Int
+  product_id           Int
+  product_code_snapshot String         @db.VarChar(50)
+  product_name_snapshot String         @db.VarChar(200)
+  unit_name_snapshot   String         @db.VarChar(100)
+  price_level_id       Int?
+  quantity             Int
+  unit_price           Decimal        @db.Decimal(15, 2)
+  line_total           Decimal        @db.Decimal(15, 2)
+  created_at           DateTime       @default(now())
+  updated_at           DateTime       @updatedAt
+
+  sales                t_sales        @relation(fields: [sales_id], references: [sales_id], onUpdate: Cascade, onDelete: Cascade)
+  product              m_product      @relation(fields: [product_id], references: [product_id], onUpdate: Restrict, onDelete: Restrict)
+  return_details       t_sales_return_detail[]
+
+  @@unique([sales_id, product_id])
+}
+
+model t_sales_payment {
+  sales_payment_id Int      @id @default(autoincrement())
+  sales_id         Int
+  payment_method   String   @db.VarChar(50) // 'CASH', 'TRANSFER', 'QRIS'
+  payment_amount   Decimal  @db.Decimal(15, 2)
+  tendered_amount  Decimal  @db.Decimal(15, 2)
+  change_amount    Decimal  @db.Decimal(15, 2)
+  reference_number String?  @db.VarChar(100)
+  paid_at          DateTime
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  sales            t_sales  @relation(fields: [sales_id], references: [sales_id], onUpdate: Cascade, onDelete: Cascade)
+}
+
+model t_sales_return {
+  sales_return_id         Int                     @id @default(autoincrement())
+  sales_return_number     String                  @unique @db.VarChar(50)
+  sales_id                Int
+  sales_number_snapshot   String                  @db.VarChar(50)
+  return_datetime         DateTime
+  customer_id             Int?
+  customer_name_snapshot  String?                 @db.VarChar(150)
+  created_by_user_id      Int
+  created_by_name_snapshot String                 @db.VarChar(150)
+  return_reason           String?                 @db.Text
+  return_status           String                  @db.VarChar(50) // 'COMPLETED', 'CANCELLED'
+  notes                   String?                 @db.Text
+  created_at              DateTime                @default(now())
+  updated_at              DateTime                @updatedAt
+
+  sales                   t_sales                 @relation(fields: [sales_id], references: [sales_id], onUpdate: Restrict, onDelete: Restrict)
+  creator                 m_user                  @relation(fields: [created_by_user_id], references: [user_id], onUpdate: Restrict, onDelete: Restrict)
+  details                 t_sales_return_detail[]
+}
+
+model t_sales_return_detail {
+  sales_return_detail_id Int            @id @default(autoincrement())
+  sales_return_id        Int
+  sales_detail_id        Int
+  line_number            Int
+  product_id             Int
+  product_code_snapshot  String         @db.VarChar(50)
+  product_name_snapshot  String         @db.VarChar(200)
+  unit_name_snapshot     String         @db.VarChar(100)
+  sold_quantity_snapshot Int
+  previous_return_quantity Int          @default(0)
+  return_quantity        Int
+  return_reason          String?        @db.Text
+  created_at             DateTime       @default(now())
+  updated_at             DateTime       @updatedAt
+
+  return_header          t_sales_return @relation(fields: [sales_return_id], references: [sales_return_id], onUpdate: Cascade, onDelete: Cascade)
+  sales_detail           t_sales_detail @relation(fields: [sales_detail_id], references: [sales_detail_id], onUpdate: Restrict, onDelete: Restrict)
+  product                m_product      @relation(fields: [product_id], references: [product_id], onUpdate: Restrict, onDelete: Restrict)
+
+  @@unique([sales_return_id, sales_detail_id])
+}
