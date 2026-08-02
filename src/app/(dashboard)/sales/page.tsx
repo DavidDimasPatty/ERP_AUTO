@@ -29,16 +29,18 @@ export default function SalesTransactionPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [receiptData, setReceiptData] = useState<any | null>(null);
+  const [isPrintReady, setIsPrintReady] = useState(false);
 
   // Fetch Master Data
   useEffect(() => {
     const fetchMasterData = async () => {
       try {
-        const resCust = await fetch('/api/master/customer?limit=100');
+        const resCust = await fetch('/api/master/customer?is_active=true');
         const dataCust = await resCust.json();
         if (dataCust.data) setCustomers(dataCust.data);
 
-        const resProd = await fetch('/api/master/product?limit=100');
+        const resProd = await fetch('/api/master/product?is_active=true');
         const dataProd = await resProd.json();
         if (dataProd.data) setProducts(dataProd.data);
       } catch (err) {
@@ -46,6 +48,26 @@ export default function SalesTransactionPage() {
       }
     };
     fetchMasterData();
+  }, []);
+
+  useEffect(() => {
+    if (isPrintReady && receiptData) {
+      console.log(receiptData);
+      console.log(document.querySelector(".receipt-print-area"));
+      const printTimeout = window.setTimeout(() => {
+        window.print();
+      }, 500);
+      return () => window.clearTimeout(printTimeout);
+    }
+  }, [isPrintReady, receiptData]);
+
+  useEffect(() => {
+    const afterPrint = () => {
+      setIsPrintReady(false);
+      setReceiptData(null);
+    };
+    window.addEventListener('afterprint', afterPrint);
+    return () => window.removeEventListener('afterprint', afterPrint);
   }, []);
 
   // Handle Product Search/Selection
@@ -213,6 +235,8 @@ export default function SalesTransactionPage() {
       }
 
       setSuccessMsg(`Transaksi berhasil disimpan dengan No: ${data.sales_number}`);
+      setReceiptData(data);
+      setIsPrintReady(true);
       // Reset form
       setCart([]);
       setSelectedCustomer('');
@@ -231,6 +255,59 @@ export default function SalesTransactionPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '2rem' }}>
 
       {/* Header & Breadcrumb */}
+      <style jsx global>{`
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 10mm;
+          }
+          html, body {
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+          }
+
+         body * {
+                visibility: hidden !important;
+            }
+
+          .receipt-print-area{
+              display:block !important;
+              position:fixed !important;
+              inset:0 !important;
+              width:100% !important;
+              height:auto !important;
+              overflow:visible !important;
+              background:#fff !important;
+          }
+         .receipt-print-area,
+          .receipt-print-area * {
+              visibility: visible !important;
+          }
+          .receipt-print-area table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            table-layout: auto !important;
+          }
+          .receipt-print-area th,
+          .receipt-print-area td {
+            border: 1px solid #000 !important;
+            padding: 0.35rem !important;
+            font-size: 12px !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+          }
+          .receipt-print-area h2,
+          .receipt-print-area h3,
+          .receipt-print-area p,
+          .receipt-print-area span,
+          .receipt-print-area strong {
+            color: #000 !important;
+          }
+        }
+      `}</style>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <h1 style={{ fontSize: '1.5rem', margin: 0 }}>Transaksi Penjualan</h1>
@@ -316,7 +393,7 @@ export default function SalesTransactionPage() {
             <div>
               <label className="form-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Jenis Penjualan</label>
               {/* <span className="badge" style={{ background: 'rgba(99,102,241,0.1)', color: 'var(--primary)', padding: '0.4rem 0.8rem' }}>{activeTab}</span> */}
-              <input type='radio' className='jenis' name='jenis' /> <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem' }}>Penjualan Bengkel</span>
+              <input type='radio' className='jenis' name='jenis' defaultChecked /> <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem' }}>Penjualan Bengkel</span>
               <input type='radio' style={{ marginLeft: '1rem' }} name='jenis' /> <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem' }}>Penjualan Eceran</span>
             </div>
           </div>
@@ -458,10 +535,15 @@ export default function SalesTransactionPage() {
             <div className="form-group">
               <label className="form-label">Uang Diterima (Rp)</label>
               <input
-                type="number"
+                type="text"
                 className="form-input"
-                value={tenderedAmount}
-                onChange={(e) => setTenderedAmount(e.target.value)}
+                // value={tenderedAmount}
+                // onChange={(e) => setTenderedAmount(e.target.value)}
+                value={Number(tenderedAmount || 0).toLocaleString('id-ID')}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\./g, '');
+                  setTenderedAmount(value);
+                }}
                 style={{ fontSize: '1.2rem', fontWeight: 600 }}
               />
             </div>
@@ -485,6 +567,64 @@ export default function SalesTransactionPage() {
 
       </div>
 
+      {receiptData && (
+        <div className="receipt-print-area" style={{ position: 'absolute', display: isPrintReady ? "block" : "none", width: '1px', height: '1px', overflow: 'hidden' }}>
+          <div style={{ width: '100%', padding: '1rem', background: '#fff', color: '#000' }}>
+            <h2 style={{ margin: '0 0 0.5rem' }}>STRUK PENJUALAN</h2>
+            <p style={{ margin: '0.25rem 0' }}>No. Transaksi: <strong>{receiptData.sales_number}</strong></p>
+            <p style={{ margin: '0.25rem 0' }}>Tanggal: <strong>{new Date(receiptData.sales_datetime).toLocaleString('id-ID')}</strong></p>
+            <p style={{ margin: '0.25rem 0' }}>Kasir: <strong>{receiptData.cashier_name_snapshot || '-'}</strong></p>
+            <p style={{ margin: '0.25rem 0' }}>Customer: <strong>{receiptData.customer_name_snapshot || 'Pelanggan Umum'}</strong></p>
+            <p style={{ margin: '0.25rem 0 1rem' }}>Jenis: <strong>{receiptData.sales_type}</strong></p>
+
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left' }}>Produk</th>
+                  <th style={{ textAlign: 'center' }}>Qty</th>
+                  <th style={{ textAlign: 'right' }}>Harga</th>
+                  <th style={{ textAlign: 'right' }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {receiptData.details?.map((item: any, index: number) => (
+                  <tr key={index}>
+                    <td>{item.product_name_snapshot || item.product_name || '-'}</td>
+                    <td style={{ textAlign: 'center' }}>{item.quantity}</td>
+                    <td style={{ textAlign: 'right' }}>{Number(item.unit_price).toLocaleString('id-ID')}</td>
+                    <td style={{ textAlign: 'right' }}>{Number(item.line_total).toLocaleString('id-ID')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div style={{ marginTop: '1rem', display: 'grid', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Subtotal</span>
+                <strong>Rp {Number(receiptData.subtotal).toLocaleString('id-ID')}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Diskon</span>
+                <strong>Rp {Number(receiptData.discount_amount || 0).toLocaleString('id-ID')}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.05rem' }}>
+                <span>Total</span>
+                <strong>Rp {Number(receiptData.total_amount).toLocaleString('id-ID')}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Bayar ({receiptData.payments?.[0]?.payment_method || '-'})</span>
+                <strong>Rp {Number(receiptData.payments?.[0]?.tendered_amount || receiptData.total_amount).toLocaleString('id-ID')}</strong>
+              </div>
+              {receiptData.payments?.[0] && receiptData.payments[0].change_amount !== undefined && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Kembalian</span>
+                  <strong>Rp {Number(receiptData.payments[0].change_amount).toLocaleString('id-ID')}</strong>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

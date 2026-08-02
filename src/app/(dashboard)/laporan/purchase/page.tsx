@@ -15,6 +15,10 @@ export default function PurchaseReport() {
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10;
 
+  const [printData, setPrintData] = useState<any[]>([]);
+  const [isPrintLoading, setIsPrintLoading] = useState(false);
+  const [isPrintReady, setIsPrintReady] = useState(false);
+
   const reportData = data;
 
   const getFieldValue = (item: any, key: string) => {
@@ -49,23 +53,24 @@ export default function PurchaseReport() {
 
   const sortedData = sortKey
     ? [...filteredData].sort((a, b) => {
-        const aValue = getFieldValue(a, sortKey);
-        const bValue = getFieldValue(b, sortKey);
+      const aValue = getFieldValue(a, sortKey);
+      const bValue = getFieldValue(b, sortKey);
 
-        if (typeof aValue === 'number' && typeof bValue === 'number') {
-          return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
-        }
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+      }
 
-        return sortOrder === 'asc'
-          ? String(aValue).localeCompare(String(bValue), 'id', { numeric: true })
-          : String(bValue).localeCompare(String(aValue), 'id', { numeric: true });
-      })
+      return sortOrder === 'asc'
+        ? String(aValue).localeCompare(String(bValue), 'id', { numeric: true })
+        : String(bValue).localeCompare(String(aValue), 'id', { numeric: true });
+    })
     : filteredData;
 
   const totalPages = Math.max(1, Math.ceil(sortedData.length / rowsPerPage));
   const paginatedData = sortedData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   const totalAmount = filteredData.reduce((sum, item) => sum + Number(getFieldValue(item, 'total')), 0);
+  const printTotalAmount = printData.reduce((sum, item) => sum + Number(item.total || item.total_amount || 0), 0);
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -123,17 +128,57 @@ export default function PurchaseReport() {
     exportToCSV(`Laporan_Pembelian_${start || 'semua'}_sd_${end || 'semua'}`, headers, rows);
   };
 
-  const handlePrintPDF = () => {
-    window.print();
+  const loadPrintData = async () => {
+    setIsPrintLoading(true);
+    setIsPrintReady(false);
+    try {
+      let url = '/api/laporan/purchase';
+      const params = new URLSearchParams();
+      if (start) params.append('start', start);
+      if (end) params.append('end', end);
+      if (params.toString()) url += `?${params.toString()}`;
+
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json)) {
+          setPrintData(json);
+          setIsPrintReady(true);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsPrintLoading(false);
+    }
   };
+
+  const handlePrintPDF = () => {
+    loadPrintData();
+  };
+
+  useEffect(() => {
+    if (isPrintReady) {
+      window.print();
+    }
+  }, [isPrintReady]);
+
+  useEffect(() => {
+    const afterPrint = () => setIsPrintReady(false);
+    window.addEventListener('afterprint', afterPrint);
+    return () => window.removeEventListener('afterprint', afterPrint);
+  }, []);
 
   return (
     <>
       {/* Printable CSS Styling */}
       <style jsx global>{`
         @media print {
-          aside, header, nav, .no-print, .btn, input, label {
+          aside, header, nav, .no-print, .report-view, .btn, input, label {
             display: none !important;
+          }
+          .print-preview {
+            display: block !important;
           }
           body, main, .app-container, .main-content {
             margin: 0 !important;
@@ -173,22 +218,20 @@ export default function PurchaseReport() {
             background-color: #f0f0f0 !important;
           }
         }
-        .print-header {
+        .print-preview {
           display: none;
         }
       `}</style>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        
+
         {/* Top Header & Navigation */}
         <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ fontSize: '1.5rem', margin: 0 }}>Laporan Pembelian</h1>
             <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Laporan &gt; Laporan Pembelian</span>
           </div>
-          <Link href="/laporan" className="btn btn-secondary" style={{ fontSize: '0.85rem' }}>
-            ← Kembali ke Menu Laporan
-          </Link>
+
         </div>
 
         {/* Filter Card */}
@@ -219,20 +262,11 @@ export default function PurchaseReport() {
           </div>
         </div>
 
-        {/* PDF Header for Printing */}
-        <div className="print-header">
-          <h1>SIMPLE ERP TOKO SPAREPART MOTOR</h1>
-          <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem' }}>LAPORAN TRANSAKSI PEMBELIAN</p>
-          <p style={{ margin: 0, fontSize: '0.8rem', color: '#555' }}>
-            Periode: {start ? start : 'Semua'} s/d {end ? end : 'Semua'} | Dicetak: {new Date().toLocaleString('id-ID')}
-          </p>
-        </div>
-
-        {/* Report Document Table Card */}
-        <div className="card" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }} className="no-print">
+        {/* Normal Report View */}
+        <div className="card report-view" style={{ padding: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Data Transaksi Pembelian</h3>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Menampilkan {reportData.length} transaksi</span>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Menampilkan {paginatedData.length} transaksi dari {filteredData.length}</span>
           </div>
 
           <div className="table-container" style={{ border: 'none' }}>
@@ -282,7 +316,7 @@ export default function PurchaseReport() {
               </tfoot>
             </table>
           </div>
-          <div className="no-print" style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ color: 'var(--text-muted)' }}>
               Menampilkan {paginatedData.length} dari {filteredData.length} data
             </div>
@@ -294,6 +328,86 @@ export default function PurchaseReport() {
               <button className="btn btn-secondary" disabled={currentPage === totalPages} onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}>
                 Berikutnya
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* PDF Header for Printing */}
+        <div className="print-preview" style={{ display: isPrintReady ? "block" : "none" }}>
+          <div className="print-header">
+            <h1>SIMPLE ERP TOKO SPAREPART MOTOR</h1>
+            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem' }}>LAPORAN TRANSAKSI PEMBELIAN</p>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: '#555' }}>
+              Periode: {start ? start : 'Semua'} s/d {end ? end : 'Semua'} | Dicetak: {new Date().toLocaleString('id-ID')}
+            </p>
+          </div>
+
+          <div className="card" style={{ padding: '1.5rem', width: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Data Transaksi Pembelian</h3>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Menampilkan {printData.length} transaksi</span>
+            </div>
+
+            <div className="table-container" style={{ border: 'none', width: '100%' }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '50px' }}>No</th>
+                    <th >No. Pembelian</th>
+                    <th>Tanggal & Waktu</th>
+                    <th>Supplier</th>
+                    <th>No. Faktur Supplier</th>
+                    <th style={{ textAlign: 'right' }}>Total (Rp)</th>
+                    <th>Pembuat</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isPrintLoading ? (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>Memuat data cetak...</td>
+                    </tr>
+                  ) : printData.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Tidak ada data pembelian untuk dicetak</td>
+                    </tr>
+                  ) : (
+                    printData.map((row, idx) => (
+                      <tr key={idx}>
+                        <td>{idx + 1}</td>
+                        <td style={{ fontWeight: 600 }}>{row.purchase_number || '-'}</td>
+                        <td>{row.date || '-'}</td>
+                        <td>{row.supplier || row.supplier_name || '-'}</td>
+                        <td>{row.invoice_no || row.supplier_invoice_number || '-'}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 600 }}>{(Number(row.total) || 0).toLocaleString('id-ID')}</td>
+                        <td>{row.user || row.created_by_name || '-'}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background: 'var(--bg-tertiary)', fontWeight: 700 }}>
+                    <td colSpan={5} style={{ textAlign: 'right', padding: '1rem' }}>TOTAL PEMBELIAN:</td>
+                    <td style={{ textAlign: 'right', padding: '1rem', color: 'var(--primary)', fontSize: '1.1rem' }}>
+                      Rp {printTotalAmount.toLocaleString('id-ID')}
+                    </td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <div className="no-print" style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ color: 'var(--text-muted)' }}>
+                Menampilkan {paginatedData.length} dari {filteredData.length} data
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button className="btn btn-secondary" disabled={currentPage === 1} onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}>
+                  Sebelumnya
+                </button>
+                <span style={{ alignSelf: 'center' }}>Halaman {currentPage} dari {totalPages}</span>
+                <button className="btn btn-secondary" disabled={currentPage === totalPages} onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}>
+                  Berikutnya
+                </button>
+              </div>
             </div>
           </div>
         </div>

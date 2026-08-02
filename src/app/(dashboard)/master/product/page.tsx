@@ -296,7 +296,7 @@ export default function ProductPage() {
                   <tr key={u.product_id}>
                     <td style={{ fontWeight: 700 }}>{u.product_code}</td>
                     <td>{u.product_name}</td>
-                    <td>Rp {u.cost_price?.toLocaleString('id-ID') ?? '-'}</td>
+                    <td>Rp {Number(u.cost_price || 0).toLocaleString('id-ID')}</td>
                     <td>{u.stock?.stock_quantity ?? '-'}</td>
                     <td>
                       <span className={`badge ${u.is_active ? 'badge-success' : 'badge-danger'}`}>
@@ -482,11 +482,13 @@ export default function ProductPage() {
                       <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
                         <span style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)' }}>Rp</span>
                         <input
-                          type="number"
+                          type="text"
                           className="form-input"
-                          placeholder="0,00"
-                          value={costPrice}
-                          onChange={(e) => setCostPrice(e.target.value)}
+                          value={Number(costPrice || 0).toLocaleString('id-ID')}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\./g, '');
+                            setCostPrice(value);
+                          }}
                           style={{ border: 'none', background: 'transparent' }}
                         />
                       </div>
@@ -512,12 +514,21 @@ export default function ProductPage() {
                             <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Harga {level}</span>
                             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Rp</span>
                             <input
-                              type="number"
+                              type="text"
                               className="form-input"
-                              placeholder="0,000"
-                              value={prices[level as keyof typeof prices]}
-                              onChange={(e) => setPrices({ ...prices, [level]: e.target.value })}
+                              value={Number(prices[level as keyof typeof prices] || 0).toLocaleString('id-ID')}
+                              onChange={(e) => {
+                                const value = e.target.value.replace(/\./g, '');
+                                setPrices({ ...prices, [level]: value });
+                              }}
                               style={{ padding: '0.3rem 0.5rem', textAlign: 'right' }}
+
+                            // type="number"
+                            // className="form-input"
+                            // placeholder="0,000"
+                            // value={prices[level as keyof typeof prices]}
+                            // onChange={(e) => setPrices({ ...prices, [level]: e.target.value })}
+                            // style={{ padding: '0.3rem 0.5rem', textAlign: 'right' }}
                             />
                           </div>
                         ))}

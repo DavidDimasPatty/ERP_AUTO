@@ -14,6 +14,9 @@ export default function SalesReport() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10;
+  const [printData, setPrintData] = useState<any[]>([]);
+  const [isPrintLoading, setIsPrintLoading] = useState(false);
+  const [isPrintReady, setIsPrintReady] = useState(false);
 
   const reportData = data;
 
@@ -118,6 +121,18 @@ export default function SalesReport() {
     setCurrentPage(1);
   }, [searchTerm, start, end]);
 
+  useEffect(() => {
+    if (isPrintReady) {
+      window.print();
+    }
+  }, [isPrintReady]);
+
+  useEffect(() => {
+    const afterPrint = () => setIsPrintReady(false);
+    window.addEventListener('afterprint', afterPrint);
+    return () => window.removeEventListener('afterprint', afterPrint);
+  }, []);
+
   const handleExportExcel = () => {
     const headers = ['No. Penjualan', 'Tanggal & Waktu', 'Jenis', 'Customer', 'Kasir', 'Subtotal (Rp)', 'Diskon (Rp)', 'Total (Rp)', 'Status'];
     const rows = reportData.map(row => [
@@ -135,8 +150,34 @@ export default function SalesReport() {
     exportToCSV(`Laporan_Penjualan_${start || 'semua'}_sd_${end || 'semua'}`, headers, rows);
   };
 
+  const loadPrintData = async () => {
+    setIsPrintLoading(true);
+    setIsPrintReady(false);
+
+    try {
+      let url = '/api/laporan/sales';
+      const params = new URLSearchParams();
+      if (start) params.append('start', start);
+      if (end) params.append('end', end);
+      if (params.toString()) url += `?${params.toString()}`;
+
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json)) {
+          setPrintData(json);
+          setIsPrintReady(true);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsPrintLoading(false);
+    }
+  };
+
   const handlePrintPDF = () => {
-    window.print();
+    loadPrintData();
   };
 
   return (
@@ -144,7 +185,7 @@ export default function SalesReport() {
       {/* Printable CSS Styling */}
       <style jsx global>{`
         @media print {
-          aside, header, nav, .no-print, .btn, input, label {
+          aside, header, nav, .no-print, .report-view, .btn, input, label {
             display: none !important;
           }
           body, main, .app-container, .main-content {
@@ -159,6 +200,9 @@ export default function SalesReport() {
             box-shadow: none !important;
             padding: 0 !important;
             background: #fff !important;
+          }
+          .print-preview {
+            display: block !important;
           }
           .print-header {
             display: block !important;
@@ -185,6 +229,9 @@ export default function SalesReport() {
             background-color: #f0f0f0 !important;
           }
         }
+        .print-preview {
+          display: none;
+        }
         .print-header {
           display: none;
         }
@@ -198,9 +245,7 @@ export default function SalesReport() {
             <h1 style={{ fontSize: '1.5rem', margin: 0 }}>Laporan Penjualan</h1>
             <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Laporan &gt; Laporan Penjualan</span>
           </div>
-          <Link href="/laporan" className="btn btn-secondary" style={{ fontSize: '0.85rem' }}>
-            ← Kembali ke Menu Laporan
-          </Link>
+
         </div>
 
         {/* Filter Card */}
@@ -232,16 +277,79 @@ export default function SalesReport() {
         </div>
 
         {/* PDF Header for Printing */}
-        <div className="print-header">
-          <h1>SIMPLE ERP TOKO SPAREPART MOTOR</h1>
-          <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem' }}>LAPORAN TRANSAKSI PENJUALAN</p>
-          <p style={{ margin: 0, fontSize: '0.8rem', color: '#555' }}>
-            Periode: {start ? start : 'Semua'} s/d {end ? end : 'Semua'} | Dicetak: {new Date().toLocaleString('id-ID')}
-          </p>
+        <div className="print-preview" style={{ display: isPrintReady ? 'block' : 'none' }}>
+          <div className="print-header">
+            <h1>SIMPLE ERP TOKO SPAREPART MOTOR</h1>
+            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem' }}>LAPORAN TRANSAKSI PENJUALAN</p>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: '#555' }}>
+              Periode: {start ? start : 'Semua'} s/d {end ? end : 'Semua'} | Dicetak: {new Date().toLocaleString('id-ID')}
+            </p>
+          </div>
+
+          <div className="card" style={{ padding: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Data Transaksi Penjualan</h3>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Menampilkan {printData.length} transaksi</span>
+            </div>
+
+            <div className="table-container" style={{ border: 'none' }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '50px' }}>No</th>
+                    <th>No. Penjualan</th>
+                    <th>Tanggal & Waktu</th>
+                    <th>Jenis</th>
+                    <th>Customer</th>
+                    <th>Kasir</th>
+                    <th style={{ textAlign: 'right' }}>Subtotal (Rp)</th>
+                    <th style={{ textAlign: 'right' }}>Diskon (Rp)</th>
+                    <th style={{ textAlign: 'right' }}>Total Omset (Rp)</th>
+                    <th style={{ textAlign: 'center' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isPrintLoading ? (
+                    <tr>
+                      <td colSpan={10} style={{ textAlign: 'center', padding: '2rem' }}>Memuat data cetak...</td>
+                    </tr>
+                  ) : printData.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Tidak ada data penjualan untuk dicetak</td>
+                    </tr>
+                  ) : (
+                    printData.map((row, idx) => (
+                      <tr key={idx}>
+                        <td>{idx + 1}</td>
+                        <td style={{ fontWeight: 600 }}>{row.sales_number || '-'}</td>
+                        <td>{row.date || '-'}</td>
+                        <td>{row.type || row.sales_type || '-'}</td>
+                        <td>{row.customer || '-'}</td>
+                        <td>{row.cashier || '-'}</td>
+                        <td style={{ textAlign: 'right' }}>{(Number(row.subtotal) || 0).toLocaleString('id-ID')}</td>
+                        <td style={{ textAlign: 'right' }}>{(Number(row.discount) || 0).toLocaleString('id-ID')}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 600 }}>{(Number(row.total) || 0).toLocaleString('id-ID')}</td>
+                        <td style={{ textAlign: 'center' }}>{row.status || '-'}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background: 'var(--bg-tertiary)', fontWeight: 700 }}>
+                    <td colSpan={6} style={{ textAlign: 'right', padding: '1rem' }}>TOTAL PENJUALAN:</td>
+                    <td style={{ textAlign: 'right', padding: '1rem' }}>Rp {printData.reduce((sum, item) => sum + (Number(item.subtotal) || 0), 0).toLocaleString('id-ID')}</td>
+                    <td style={{ textAlign: 'right', padding: '1rem' }}>Rp {printData.reduce((sum, item) => sum + (Number(item.discount) || 0), 0).toLocaleString('id-ID')}</td>
+                    <td style={{ textAlign: 'right', padding: '1rem', color: 'var(--primary)', fontSize: '1.1rem' }}>Rp {printData.reduce((sum, item) => sum + (Number(item.total) || 0), 0).toLocaleString('id-ID')}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
         </div>
 
         {/* Report Document Table Card */}
-        <div className="card" style={{ padding: '1.5rem' }}>
+        <div className="card report-view" style={{ padding: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }} className="no-print">
             <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Data Transaksi Penjualan</h3>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Menampilkan {reportData.length} transaksi</span>

@@ -20,7 +20,7 @@ export default function PurchaseTransactionPage() {
   const [selectedProduct, setSelectedProduct] = useState('');
   const [qty, setQty] = useState('');
   const [price, setPrice] = useState('');
-  
+
   // Status State
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -29,11 +29,11 @@ export default function PurchaseTransactionPage() {
   useEffect(() => {
     const fetchMasterData = async () => {
       try {
-        const resSup = await fetch('/api/master/supplier?limit=100');
+        const resSup = await fetch('/api/master/supplier?is_active=true');
         const dataSup = await resSup.json();
         if (dataSup.data) setSuppliers(dataSup.data);
 
-        const resProd = await fetch('/api/master/product?limit=100');
+        const resProd = await fetch('/api/master/product?is_active=true');
         const dataProd = await resProd.json();
         if (dataProd.data) setProducts(dataProd.data);
       } catch (err) {
@@ -102,7 +102,7 @@ export default function PurchaseTransactionPage() {
   const handleSubmit = async () => {
     setErrorMsg('');
     setSuccessMsg('');
-    
+
     if (!selectedSupplier) {
       setErrorMsg('Pilih supplier terlebih dahulu.');
       return;
@@ -144,9 +144,9 @@ export default function PurchaseTransactionPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      
+
       const data = await res.json();
-      
+
       if (!res.ok) {
         throw new Error(data.message || 'Gagal menyimpan transaksi pembelian');
       }
@@ -157,7 +157,7 @@ export default function PurchaseTransactionPage() {
       setSelectedSupplier('');
       setInvoiceNumber('');
       setNotes('');
-      
+
     } catch (err: any) {
       setErrorMsg(err.message);
     } finally {
@@ -176,16 +176,13 @@ export default function PurchaseTransactionPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '2rem' }}>
-      
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
           <h1 style={{ fontSize: '1.5rem', margin: 0 }}>Tambah Transaksi Pembelian</h1>
           <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Pembelian &gt; Transaksi Pembelian &gt; <span style={{ color: 'var(--primary)' }}>Tambah</span></span>
         </div>
-        <button className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
-          ← Kembali ke Daftar
-        </button>
       </div>
 
       {errorMsg && (
@@ -203,7 +200,7 @@ export default function PurchaseTransactionPage() {
       <div className="card" style={{ padding: '1.5rem' }}>
         <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem' }}>Informasi Pembelian</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
-          
+
           {/* Column 1 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
@@ -242,12 +239,12 @@ export default function PurchaseTransactionPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div className="form-group" style={{ marginBottom: 0, height: '100%' }}>
               <label className="form-label">Total Pembelian</label>
-              <div style={{ 
-                background: 'rgba(99, 102, 241, 0.05)', 
-                border: '1px solid var(--primary-light)', 
-                borderRadius: 'var(--radius-md)', 
-                display: 'flex', 
-                alignItems: 'center', 
+              <div style={{
+                background: 'rgba(99, 102, 241, 0.05)',
+                border: '1px solid var(--primary-light)',
+                borderRadius: 'var(--radius-md)',
+                display: 'flex',
+                alignItems: 'center',
                 justifyContent: 'center',
                 height: 'calc(100% - 1.5rem)',
                 padding: '2rem'
@@ -270,7 +267,7 @@ export default function PurchaseTransactionPage() {
             + Tambah Produk
           </button>
         </div>
-        
+
         <div className="table-container" style={{ border: 'none', borderTop: '1px solid var(--border-color)', borderRadius: 0 }}>
           <table className="table" style={{ borderBottom: '1px solid var(--border-color)' }}>
             <thead>
@@ -332,7 +329,7 @@ export default function PurchaseTransactionPage() {
 
       {/* Footer Actions */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        
+
         {/* Catatan Info */}
         <div style={{ background: 'rgba(99,102,241,0.05)', border: '1px solid var(--primary-light)', padding: '1.25rem', borderRadius: 'var(--radius-md)', width: '400px' }}>
           <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
@@ -390,7 +387,15 @@ export default function PurchaseTransactionPage() {
                   <label className="form-label">Harga Beli / PCS <span style={{ color: 'var(--danger)' }}>*</span></label>
                   <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
                     <span style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>Rp</span>
-                    <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} style={{ border: 'none', background: 'transparent', width: '100%', color: 'var(--text-primary)', outline: 'none' }} placeholder="0" />
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={Number(price || 0).toLocaleString('id-ID')}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\./g, '');
+                        setPrice(value);
+                      }}
+                      style={{ border: 'none', background: 'transparent', width: '100%', color: 'var(--text-primary)', outline: 'none' }} placeholder="0" />
                   </div>
                 </div>
                 <div className="form-group">

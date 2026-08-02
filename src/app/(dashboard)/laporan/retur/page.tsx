@@ -14,6 +14,9 @@ export default function ReturReport() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10;
+  const [printData, setPrintData] = useState<any[]>([]);
+  const [isPrintLoading, setIsPrintLoading] = useState(false);
+  const [isPrintReady, setIsPrintReady] = useState(false);
 
   const getFieldValue = (item: any, key: string) => {
     switch (key) {
@@ -55,17 +58,17 @@ export default function ReturReport() {
 
   const sortedData = sortKey
     ? [...filteredData].sort((a, b) => {
-        const aValue = getFieldValue(a, sortKey);
-        const bValue = getFieldValue(b, sortKey);
+      const aValue = getFieldValue(a, sortKey);
+      const bValue = getFieldValue(b, sortKey);
 
-        if (typeof aValue === 'number' && typeof bValue === 'number') {
-          return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
-        }
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+      }
 
-        return sortOrder === 'asc'
-          ? String(aValue).localeCompare(String(bValue), 'id', { numeric: true })
-          : String(bValue).localeCompare(String(aValue), 'id', { numeric: true });
-      })
+      return sortOrder === 'asc'
+        ? String(aValue).localeCompare(String(bValue), 'id', { numeric: true })
+        : String(bValue).localeCompare(String(aValue), 'id', { numeric: true });
+    })
     : filteredData;
 
   const totalPages = Math.max(1, Math.ceil(sortedData.length / rowsPerPage));
@@ -117,6 +120,18 @@ export default function ReturReport() {
     setCurrentPage(1);
   }, [searchTerm, start, end]);
 
+  useEffect(() => {
+    if (isPrintReady) {
+      window.print();
+    }
+  }, [isPrintReady]);
+
+  useEffect(() => {
+    const afterPrint = () => setIsPrintReady(false);
+    window.addEventListener('afterprint', afterPrint);
+    return () => window.removeEventListener('afterprint', afterPrint);
+  }, []);
+
   const handleExportExcel = () => {
     const headers = ['No. Retur', 'Tanggal & Waktu', 'No. Penjualan', 'Customer', 'Total Item', 'Jumlah Qty', 'Operator', 'Status', 'Alasan Retur'];
     const rows = data.map(row => [
@@ -134,15 +149,41 @@ export default function ReturReport() {
     exportToCSV(`Laporan_Retur_${start || 'semua'}_sd_${end || 'semua'}`, headers, rows);
   };
 
+  const loadPrintData = async () => {
+    setIsPrintLoading(true);
+    setIsPrintReady(false);
+
+    try {
+      let url = '/api/laporan/retur';
+      const params = new URLSearchParams();
+      if (start) params.append('start', start);
+      if (end) params.append('end', end);
+      if (params.toString()) url += `?${params.toString()}`;
+
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json)) {
+          setPrintData(json);
+          setIsPrintReady(true);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsPrintLoading(false);
+    }
+  };
+
   const handlePrintPDF = () => {
-    window.print();
+    loadPrintData();
   };
 
   return (
     <>
       <style jsx global>{`
         @media print {
-          aside, header, nav, .no-print, .btn, input, label {
+          aside, header, nav, .no-print, .report-view, .btn, input, label {
             display: none !important;
           }
           body, main, .app-container, .main-content {
@@ -157,6 +198,9 @@ export default function ReturReport() {
             box-shadow: none !important;
             padding: 0 !important;
             background: #fff !important;
+          }
+          .print-preview {
+            display: block !important;
           }
           .print-header {
             display: block !important;
@@ -183,6 +227,9 @@ export default function ReturReport() {
             background-color: #f0f0f0 !important;
           }
         }
+        .print-preview {
+          display: none;
+        }
         .print-header {
           display: none;
         }
@@ -194,9 +241,6 @@ export default function ReturReport() {
             <h1 style={{ fontSize: '1.5rem', margin: 0 }}>Laporan Retur Penjualan</h1>
             <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Laporan &gt; Laporan Retur</span>
           </div>
-          <Link href="/laporan" className="btn btn-secondary" style={{ fontSize: '0.85rem' }}>
-            ← Kembali ke Menu Laporan
-          </Link>
         </div>
 
         <div className="card no-print" style={{ padding: '1.25rem', display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -226,15 +270,84 @@ export default function ReturReport() {
           </div>
         </div>
 
-        <div className="print-header">
-          <h1>SIMPLE ERP TOKO SPAREPART MOTOR</h1>
-          <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem' }}>LAPORAN RETUR PELANGGAN</p>
-          <p style={{ margin: 0, fontSize: '0.8rem', color: '#555' }}>
-            Periode: {start ? start : 'Semua'} s/d {end ? end : 'Semua'} | Dicetak: {new Date().toLocaleString('id-ID')}
-          </p>
+
+        {/* print */}
+        <div className="print-preview" style={{ display: isPrintReady ? 'block' : 'none' }}>
+          <div className="print-header">
+            <h1>SIMPLE ERP TOKO SPAREPART MOTOR</h1>
+            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem' }}>LAPORAN RETUR PELANGGAN</p>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: '#555' }}>
+              Periode: {start ? start : 'Semua'} s/d {end ? end : 'Semua'} | Dicetak: {new Date().toLocaleString('id-ID')}
+            </p>
+          </div>
+
+          <div className="card" style={{ padding: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Data Retur Penjualan</h3>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Menampilkan {printData.length} retur</span>
+            </div>
+
+            <div className="table-container" style={{ border: 'none' }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '50px' }}>No</th>
+                    <th>No. Retur</th>
+                    <th>Tanggal & Waktu</th>
+                    <th>No. Penjualan</th>
+                    <th style={{ width: '110px' }}>Customer</th>
+                    <th style={{ textAlign: 'right' }}>Item Retur</th>
+                    <th style={{ textAlign: 'right' }}>Qty Retur</th>
+                    <th>Operator</th>
+                    <th style={{ textAlign: 'center' }}>Status</th>
+                    <th>Alasan Retur</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isPrintLoading ? (
+                    <tr>
+                      <td colSpan={10} style={{ textAlign: 'center', padding: '2rem' }}>Memuat data cetak...</td>
+                    </tr>
+                  ) : printData.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Tidak ada data retur untuk dicetak</td>
+                    </tr>
+                  ) : (
+                    printData.map((row, idx) => (
+                      <tr key={idx}>
+                        <td>{idx + 1}</td>
+                        <td style={{ fontWeight: 600 }}>{row.sales_return_number || '-'}</td>
+                        <td>{row.date || '-'}</td>
+                        <td>{row.sales_number || '-'}</td>
+                        <td>{row.customer || '-'}</td>
+                        <td style={{ textAlign: 'right' }}>{Number(row.total_items || 0).toLocaleString('id-ID')}</td>
+                        <td style={{ textAlign: 'right' }}>{Number(row.total_quantity || 0).toLocaleString('id-ID')}</td>
+                        <td>{row.operator || '-'}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="badge" style={{ background: row.status === 'COMPLETED' ? 'rgba(34,197,94,0.14)' : 'rgba(107,114,128,0.16)', color: row.status === 'COMPLETED' ? '#16a34a' : '#374151' }}>
+                            {row.status || '-'}
+                          </span>
+                        </td>
+                        <td>{row.reason || '-'}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background: 'var(--bg-tertiary)', fontWeight: 700 }}>
+                    <td colSpan={4} style={{ textAlign: 'right', padding: '1rem' }}>TOTAL RETUR:</td>
+                    <td style={{ padding: '1rem' }}>{printData.length} transaksi</td>
+                    <td style={{ textAlign: 'right', padding: '1rem' }}>{printData.reduce((sum, item) => sum + Number(getFieldValue(item, 'total_items')), 0).toLocaleString('id-ID')}</td>
+                    <td style={{ textAlign: 'right', padding: '1rem' }}>{printData.reduce((sum, item) => sum + Number(getFieldValue(item, 'total_quantity')), 0).toLocaleString('id-ID')}</td>
+                    <td colSpan={3}></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
         </div>
 
-        <div className="card" style={{ padding: '1.5rem' }}>
+        <div className="card report-view" style={{ padding: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }} className="no-print">
             <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Data Retur Penjualan</h3>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Menampilkan {filteredData.length} retur</span>

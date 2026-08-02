@@ -9,32 +9,36 @@
   --text-primary: #f3f4f6;
   --text-secondary: #9ca3af;
   --text-muted: #6b7280;
-  
-  --primary: #6366f1;         /* Indigo */
+
+  --primary: #6366f1;
+  /* Indigo */
   --primary-hover: #4f46e5;
   --primary-light: rgba(99, 102, 241, 0.1);
   --primary-glow: rgba(99, 102, 241, 0.25);
-  
-  --success: #10b981;         /* Emerald */
+
+  --success: #10b981;
+  /* Emerald */
   --success-hover: #059669;
   --success-light: rgba(16, 185, 129, 0.1);
-  
-  --warning: #f59e0b;         /* Amber */
+
+  --warning: #f59e0b;
+  /* Amber */
   --warning-hover: #d97706;
   --warning-light: rgba(245, 158, 11, 0.1);
-  
-  --danger: #ef4444;          /* Rose Red */
+
+  --danger: #ef4444;
+  /* Rose Red */
   --danger-hover: #dc2626;
   --danger-light: rgba(239, 68, 68, 0.1);
-  
+
   --card-bg: rgba(17, 24, 39, 0.7);
   --card-border: rgba(255, 255, 255, 0.05);
   --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
   --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  
+
   --font-sans: 'Plus Jakarta Sans', sans-serif;
   --font-title: 'Outfit', sans-serif;
-  
+
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
@@ -52,12 +56,12 @@
     --text-primary: #0f172a;
     --text-secondary: #475569;
     --text-muted: #94a3b8;
-    
+
     --primary: #4f46e5;
     --primary-hover: #4338ca;
     --primary-light: rgba(79, 70, 229, 0.08);
     --primary-glow: rgba(79, 70, 229, 0.15);
-    
+
     --card-bg: rgba(255, 255, 255, 0.85);
     --card-border: rgba(0, 0, 0, 0.06);
     --glass-shadow: 0 8px 32px 0 rgba(15, 23, 42, 0.08);
@@ -71,7 +75,8 @@
   padding: 0;
 }
 
-html, body {
+html,
+body {
   height: 100%;
   background: var(--bg-primary);
   color: var(--text-primary);
@@ -80,7 +85,12 @@ html, body {
   overflow-x: hidden;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-title);
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -91,13 +101,16 @@ h1, h2, h3, h4, h5, h6 {
   width: 8px;
   height: 8px;
 }
+
 ::-webkit-scrollbar-track {
   background: var(--bg-primary);
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--border-color);
   border-radius: var(--radius-sm);
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
@@ -139,11 +152,13 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-primary);
   margin-bottom: 2rem;
 }
+
 .brand span {
   background: linear-gradient(135deg, var(--primary), #a855f7);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
 .brand-icon {
   width: 32px;
   height: 32px;
@@ -183,7 +198,8 @@ h1, h2, h3, h4, h5, h6 {
   cursor: pointer;
 }
 
-.nav-link:hover, .nav-link.active {
+.nav-link:hover,
+.nav-link.active {
   color: var(--text-primary);
   background: var(--primary-light);
 }
@@ -318,6 +334,7 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--primary);
   color: #fff;
 }
+
 .btn-primary:hover {
   background: var(--primary-hover);
   box-shadow: 0 0 15px var(--primary-glow);
@@ -328,6 +345,7 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-primary);
   border: 1px solid var(--border-color);
 }
+
 .btn-secondary:hover {
   background: var(--border-color);
 }
@@ -336,6 +354,7 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--danger);
   color: #fff;
 }
+
 .btn-danger:hover {
   background: var(--danger-hover);
   box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
@@ -345,6 +364,7 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--success);
   color: #fff;
 }
+
 .btn-success:hover {
   background: var(--success-hover);
   box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
@@ -473,6 +493,7 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 1.5rem;
   cursor: pointer;
 }
+
 .close-btn:hover {
   color: var(--text-primary);
 }
@@ -485,39 +506,101 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 0.9rem;
   line-height: 1.4;
 }
+
 .alert-danger {
   background: var(--danger-light);
   border: 1px solid rgba(239, 68, 68, 0.2);
   color: var(--danger);
 }
+
 .alert-success {
   background: var(--success-light);
   border: 1px solid rgba(16, 185, 129, 0.2);
   color: var(--success);
 }
+
 .alert-warning {
   background: var(--warning-light);
   border: 1px solid rgba(245, 158, 11, 0.2);
   color: var(--warning);
 }
 
-/* Printing styles for thermal invoice */
+
 @media print {
+
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  html,
+  body {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    overflow: visible;
+  }
+
+  /* Sembunyikan semua */
   body * {
     visibility: hidden;
   }
-  .print-area, .print-area * {
+
+  /* Tampilkan hanya area print */
+  .print-preview,
+  .print-preview * {
     visibility: visible;
   }
-  .print-area {
+
+  .print-preview {
     position: absolute;
     left: 0;
     top: 0;
-    width: 80mm;
-    padding: 2mm;
-    color: #000 !important;
-    background: #fff !important;
-    font-family: monospace;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0;
+    padding: 0;
+    display: block !important;
+    background: #fff;
+  }
+
+  .print-header {
+    margin-bottom: 20px;
+    border-bottom: 2px solid #000;
+    padding-bottom: 10px;
+  }
+
+  .card {
+    width: 100% !important;
+    max-width: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .table-container {
+    width: 100% !important;
+    overflow: visible !important;
+  }
+
+  .table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    table-layout: auto;
+  }
+
+  .table th,
+  .table td {
+    border: 1px solid #000 !important;
+    padding: 6px;
+    white-space: normal;
+    word-break: break-word;
     font-size: 12px;
+  }
+
+  .table th {
+    background: #f3f3f3 !important;
   }
 }
