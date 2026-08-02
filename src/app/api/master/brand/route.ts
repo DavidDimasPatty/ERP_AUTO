@@ -52,6 +52,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Kode dan nama merek wajib diisi' }, { status: 400 });
     }
 
+    const count= await prisma.m_brand.count({});
+    var newBrandCode = '';
+    if (count === 0) {
+      newBrandCode = 'BR0001';
+    }else{
+      newBrandCode = 'BR' + (count + 1).toString().padStart(4, '0');
+    }
+
     const normalizedCode = brand_code.trim().toUpperCase();
     const normalizedName = brand_name.trim().toUpperCase();
 
