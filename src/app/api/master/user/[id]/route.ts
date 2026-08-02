@@ -65,10 +65,19 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ message: 'ID user tidak valid' }, { status: 400 });
     }
 
-    // Soft delete via is_active = false
+    var isActive = await prisma.m_user.findUnique({
+      where: { user_id: userId },
+    }).then(user => user?.is_active ?? false);
+
+    if (!isActive) {
+      isActive = true;
+    }
+    else {
+      isActive = false;
+    }
     const softDeleted = await prisma.m_user.update({
       where: { user_id: userId },
-      data: { is_active: false },
+      data: { is_active: isActive },
     });
 
     const { password_hash, ...sanitized } = softDeleted;

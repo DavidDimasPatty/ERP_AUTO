@@ -109,7 +109,7 @@ export default function ProductPage() {
     setProductDescription(prod.product_description || '');
     setCostPrice(prod.cost_price?.toString() ?? '0');
     setMinimumStock(prod.minimum_stock?.toString() ?? '0');
-    
+
     const priceMap: { [key in 1 | 2 | 3 | 4 | 5]: string } = { 1: '0', 2: '0', 3: '0', 4: '0', 5: '0' };
     prod.prices?.forEach(p => { priceMap[p.price_level_id as 1 | 2 | 3 | 4 | 5] = p.price_amount.toString(); });
     setPrices(priceMap);
@@ -166,6 +166,40 @@ export default function ProductPage() {
       setFormError(err.message || 'Gagal menyimpan data');
     } finally {
       setFormLoading(false);
+    }
+  };
+
+  const handleHardDelete = async (id: number) => {
+    const result = await Swal.fire({
+      title: 'Konfirmasi',
+      text: 'Apakah Anda yakin ingin menghapus produk ini secara permanen?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, hapus',
+      cancelButtonText: 'Batal',
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const res = await fetch(`/api/master/product?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchProducts();
+      } else {
+        const err = await res.json();
+        await Swal.fire({
+          icon: 'error',
+          title: 'Gagal',
+          text: err.message || 'Gagal menghapus',
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      await Swal.fire({
+        icon: 'error',
+        title: 'Gagal',
+        text: 'Gagal menghapus',
+      });
     }
   };
 
@@ -277,14 +311,42 @@ export default function ProductPage() {
                       >
                         ✏️
                       </button>
+
+                      {u.is_active && (
+                        <button
+                          onClick={() => handleSoftDelete(u.product_id)}
+                          className="btn btn-primary"
+                          style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                        >
+                          DEACTIVE
+                        </button>
+                      )}
+
+                      {!u.is_active && (
+                        <button
+                          onClick={() => handleSoftDelete(u.product_id)}
+                          className="btn btn-success"
+                          style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                        >
+                          ACTIVE
+                        </button>
+                      )}
+
                       <button
-                        onClick={() => handleSoftDelete(u.product_id)}
+                        onClick={() => handleHardDelete(u.product_id)}
                         className="btn btn-danger"
                         style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
-                        disabled={!u.is_active}
                       >
                         🗑️
                       </button>
+                      {/* <button
+                        onClick={() => handleSoftDelete(u.product_id)}
+                        className="btn btn-warning"
+                        style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                        disabled={!u.is_active}
+                      >
+                        ❌
+                      </button> */}
                     </td>
                   </tr>
                 ))
@@ -335,25 +397,28 @@ export default function ProductPage() {
                     {formError}
                   </div>
                 )}
-                
+
                 {/* 2 Column Main Layout */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                  
+
                   {/* Left Column */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div className="form-group">
-                      <label className="form-label">Kode Produk <span style={{ color: 'red' }}>*</span></label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        placeholder="Contoh: PRD001"
-                        value={productCode}
-                        onChange={(e) => setProductCode(e.target.value)}
-                        required
-                      />
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Maksimal 30 karakter</span>
-                    </div>
 
+                    {editId && (
+                      <div className="form-group">
+                        <label className="form-label">Kode Produk <span style={{ color: 'red' }}>*</span></label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Isi kosong untuk generate otomatis"
+                          value={productCode}
+                          onChange={(e) => setProductCode(e.target.value)}
+                          required={!!editId}
+                          readOnly={!!editId}
+                        />
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Maksimal 30 karakter</span>
+                      </div>
+                    )}
                     <div className="form-group">
                       <label className="form-label">Nama Produk <span style={{ color: 'red' }}>*</span></label>
                       <input

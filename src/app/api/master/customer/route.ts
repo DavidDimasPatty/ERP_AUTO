@@ -56,14 +56,18 @@ export async function POST(req: NextRequest) {
       notes,
     } = body;
 
-    if (!customer_code || !customer_name) {
-      return NextResponse.json({ message: 'Kode dan nama pelanggan wajib diisi' }, { status: 400 });
+    if (!customer_name) {
+      return NextResponse.json({ message: 'Nama pelanggan wajib diisi' }, { status: 400 });
     }
 
-    const normalizedCode = customer_code.trim().toUpperCase();
     const normalizedName = customer_name.trim().toUpperCase();
+    let normalizedCode = customer_code?.trim().toUpperCase() || '';
 
-    // Check duplicate code
+    if (!normalizedCode) {
+      const count = await prisma.m_customer.count();
+      normalizedCode = `CUS${(count + 1).toString().padStart(5, '0')}`;
+    }
+
     const existing = await prisma.m_customer.findUnique({
       where: { customer_code: normalizedCode },
     });
@@ -93,6 +97,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(newCustomer, { status: 201 });
   } catch (error: any) {
     console.error('POST customer error:', error);
+    return NextResponse.json({ message: 'Kesalahan server internal' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    const customerId = parseInt(id || '', 10);
+    if (isNaN(customerId)) {
+      return NextResponse.json({ message: 'ID customer tidak valid' }, { status: 400 });
+    }
+
+    const hardDeleted = await prisma.m_customer.delete({
+      where: { customer_id: customerId },
+    });
+
+    return NextResponse.json({ message: 'Customer berhasil dihapus', data: hardDeleted });
+  } catch (error: any) {
+    console.error('HARD DELETE customer error:', error);
     return NextResponse.json({ message: 'Kesalahan server internal' }, { status: 500 });
   }
 }

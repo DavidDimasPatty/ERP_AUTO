@@ -55,10 +55,19 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ message: 'ID merek tidak valid' }, { status: 400 });
     }
 
-    // Soft delete via is_active = false
+    var isActive = await prisma.m_brand.findUnique({
+      where: { brand_id: brandId },
+    }).then(brand=>brand?.is_active ?? false);
+
+    if (!isActive) {
+      isActive = true;
+    }
+    else {
+      isActive = false;
+    }
     const softDeleted = await prisma.m_brand.update({
       where: { brand_id: brandId },
-      data: { is_active: false },
+      data: { is_active: isActive },
     });
 
     return NextResponse.json({ message: 'Merek berhasil dinonaktifkan', data: softDeleted });
@@ -67,3 +76,4 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ message: 'Kesalahan server internal' }, { status: 500 });
   }
 }
+

@@ -32,7 +32,7 @@ export default function CustomerPage() {
   // Form State
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  
+
   // Fields based on image:
   // Kode Customer *, Nama Customer *
   // Jenis Customer *, No. Telepon
@@ -169,6 +169,40 @@ export default function CustomerPage() {
     }
   };
 
+  const handleHardDelete = async (id: number) => {
+    const result = await Swal.fire({
+      title: 'Konfirmasi',
+      text: 'Apakah Anda yakin ingin menghapus customer ini secara permanen?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, hapus',
+      cancelButtonText: 'Batal',
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const res = await fetch(`/api/master/customer?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchCustomers();
+      } else {
+        const err = await res.json();
+        await Swal.fire({
+          icon: 'error',
+          title: 'Gagal',
+          text: err.message || 'Gagal menghapus',
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      await Swal.fire({
+        icon: 'error',
+        title: 'Gagal',
+        text: 'Gagal menghapus',
+      });
+    }
+  };
+
   const handleSoftDelete = async (id: number) => {
     const result = await Swal.fire({
       title: 'Konfirmasi',
@@ -281,14 +315,43 @@ export default function CustomerPage() {
                       >
                         ✏️
                       </button>
+
+                      {c.is_active && (
+                        <button
+                          onClick={() => handleSoftDelete(c.customer_id)}
+                          className="btn btn-primary"
+                          style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                        >
+                          DEACTIVE
+                        </button>
+                      )}
+
+                      {!c.is_active && (
+                        <button
+                          onClick={() => handleSoftDelete(c.customer_id)}
+                          className="btn btn-success"
+                          style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                        >
+                          ACTIVE
+                        </button>
+                      )}
+                      
                       <button
-                        onClick={() => handleSoftDelete(c.customer_id)}
+                        onClick={() => handleHardDelete(c.customer_id)}
                         className="btn btn-danger"
                         style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
-                        disabled={!c.is_active}
                       >
                         🗑️
                       </button>
+                      {/* <button
+                        onClick={() => handleSoftDelete(c.customer_id)}
+                        className="btn btn-warning"
+                        style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                        disabled={!c.is_active}
+                      >
+                        ❌
+                      </button> */}
+
                     </td>
                   </tr>
                 ))
@@ -342,22 +405,27 @@ export default function CustomerPage() {
                     {formError}
                   </div>
                 )}
-                
+
                 {/* 2 Column Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   {/* Left Column */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div className="form-group">
-                      <label className="form-label">Kode Customer <span style={{ color: 'red' }}>*</span></label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        placeholder="CUS001"
-                        value={customerCode}
-                        onChange={(e) => setCustomerCode(e.target.value)}
-                        required
-                      />
-                    </div>
+
+                    {editId && (
+                      <div className="form-group">
+                        <label className="form-label">Kode Customer <span style={{ color: 'red' }}>*</span></label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Isi kosong untuk generate otomatis"
+                          value={customerCode}
+                          onChange={(e) => setCustomerCode(e.target.value)}
+                          required={!!editId}
+                          readOnly={!!editId}
+                        />
+                      </div>
+                    )}
+
                     <div className="form-group">
                       <label className="form-label">Jenis Customer <span style={{ color: 'red' }}>*</span></label>
                       <select

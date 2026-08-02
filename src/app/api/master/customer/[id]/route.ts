@@ -73,12 +73,21 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ message: 'ID pelanggan tidak valid' }, { status: 400 });
     }
 
-    // Soft delete via is_active = false
+    var isActive = await prisma.m_customer.findUnique({
+      where: { customer_id: customerId },
+    }).then(customer => customer?.is_active ?? false);
+
+    if (!isActive) {
+      isActive = true;
+    }
+    else {
+      isActive = false;
+    }
     const softDeleted = await prisma.m_customer.update({
       where: { customer_id: customerId },
-      data: { is_active: false },
+      data: { is_active: isActive },
     });
-
+    
     return NextResponse.json({ message: 'Pelanggan berhasil dinonaktifkan', data: softDeleted });
   } catch (error: any) {
     console.error('DELETE customer error:', error);

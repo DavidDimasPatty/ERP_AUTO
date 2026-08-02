@@ -12,11 +12,11 @@ export async function GET(req: NextRequest) {
 
     const where = search
       ? {
-          OR: [
-            { username: { contains: search } },
-            { full_name: { contains: search } },
-          ],
-        }
+        OR: [
+          { username: { contains: search } },
+          { full_name: { contains: search } },
+        ],
+      }
       : {};
 
     const [total, data] = await prisma.$transaction([
@@ -86,6 +86,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(sanitized, { status: 201 });
   } catch (error: any) {
     console.error('POST user error:', error);
+    return NextResponse.json({ message: 'Kesalahan server internal' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    const UserId = parseInt(id || '', 10);
+    if (isNaN(UserId)) {
+      return NextResponse.json({ message: 'ID user tidak valid' }, { status: 400 });
+    }
+
+    const hardDeleted = await prisma.m_user.delete({
+      where: { user_id: UserId }
+    });
+
+    return NextResponse.json({ message: 'User berhasil dihapus', data: hardDeleted });
+  } catch (error: any) {
+    console.error('HARD DELETE user error:', error);
     return NextResponse.json({ message: 'Kesalahan server internal' }, { status: 500 });
   }
 }

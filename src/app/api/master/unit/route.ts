@@ -11,11 +11,11 @@ export async function GET(req: NextRequest) {
 
     const where = search
       ? {
-          OR: [
-            { unit_code: { contains: search } },
-            { unit_name: { contains: search } },
-          ],
-        }
+        OR: [
+          { unit_code: { contains: search } },
+          { unit_name: { contains: search } },
+        ],
+      }
       : {};
 
     const [total, data] = await prisma.$transaction([
@@ -48,14 +48,18 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { unit_code, unit_name } = body;
 
-    if (!unit_code || !unit_name) {
-      return NextResponse.json({ message: 'Kode dan nama unit wajib diisi' }, { status: 400 });
+    if (!unit_name) {
+      return NextResponse.json({ message: 'Nama unit wajib diisi' }, { status: 400 });
     }
 
-    const normalizedCode = unit_code.trim().toUpperCase();
     const normalizedName = unit_name.trim().toUpperCase();
+    let normalizedCode = unit_code?.trim().toUpperCase() || '';
 
-    // Check duplicate code
+    if (!normalizedCode) {
+      const count = await prisma.m_unit.count();
+      normalizedCode = `UNT${(count + 1).toString().padStart(5, '0')}`;
+    }
+
     const existing = await prisma.m_unit.findUnique({
       where: { unit_code: normalizedCode },
     });
@@ -75,6 +79,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(newUnit, { status: 201 });
   } catch (error: any) {
     console.error('POST unit error:', error);
+    return NextResponse.json({ message: 'Kesalahan server internal' }, { status: 500 });
+  }
+}
+
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    const UnitId = parseInt(id || '', 10);
+    if (isNaN(UnitId)) {
+      return NextResponse.json({ message: 'ID unit tidak valid' }, { status: 400 });
+    }
+
+    const hardDeleted = await prisma.m_unit.delete({
+      where: { unit_id: UnitId }
+    });
+
+    return NextResponse.json({ message: 'Unit berhasil dihapus', data: hardDeleted });
+  } catch (error: any) {
+    console.error('HARD DELETE unit error:', error);
     return NextResponse.json({ message: 'Kesalahan server internal' }, { status: 500 });
   }
 }

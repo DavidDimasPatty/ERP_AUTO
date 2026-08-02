@@ -101,8 +101,6 @@ export default function BrandPage() {
         body: JSON.stringify({
           brand_code: brandCode,
           brand_name: brandName,
-          old_code: oldCode,
-          notes,
           is_active: isActive,
         }),
       });
@@ -116,6 +114,42 @@ export default function BrandPage() {
       setFormError(err.message || 'Gagal menyimpan data');
     } finally {
       setFormLoading(false);
+    }
+  };
+
+  const handleHardDelete = async (id: number) => {
+    const result = await Swal.fire({
+      title: 'Konfirmasi',
+      text: 'Apakah Anda yakin ingin menghapus merek ini secara permanen?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, hapus',
+      cancelButtonText: 'Batal',
+    })
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const res = await fetch(`/api/master/brand?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchBrands();
+      }
+      else {
+        const err = await res.json();
+        await Swal.fire({
+          icon: 'error',
+          title: 'Gagal',
+          text: err.message || 'Gagal menghapus',
+        });
+      }
+    }
+    catch (error) {
+      console.error(error);
+      await Swal.fire({
+        icon: 'error',
+        title: 'Gagal',
+        text: 'Gagal menghapus',
+      });
     }
   };
 
@@ -223,14 +257,37 @@ export default function BrandPage() {
                       >
                         ✏️
                       </button>
+
+                      {b.is_active && (
+                        <button
+                          onClick={() => handleSoftDelete(b.brand_id)}
+                          className="btn btn-primary"
+                          style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                        >
+                          DEACTIVE
+                        </button>
+                      )}
+
+                      {!b.is_active && (
+                        <button
+                          onClick={() => handleSoftDelete(b.brand_id)}
+                          className="btn btn-success"
+                          style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                        >
+                          ACTIVE
+                        </button>
+                      )}
+                      
                       <button
-                        onClick={() => handleSoftDelete(b.brand_id)}
+                        onClick={() => handleHardDelete(b.brand_id)}
                         className="btn btn-danger"
                         style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
-                        disabled={!b.is_active}
                       >
                         🗑️
                       </button>
+
+
+
                     </td>
                   </tr>
                 ))
@@ -284,18 +341,21 @@ export default function BrandPage() {
                     {formError}
                   </div>
                 )}
-                
-                <div className="form-group">
-                  <label className="form-label">Kode Merek <span style={{ color: 'red' }}>*</span></label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="MRK001"
-                    value={brandCode}
-                    onChange={(e) => setBrandCode(e.target.value)}
-                    required
-                  />
-                </div>
+
+                {editId && (
+                  <div className="form-group">
+                    <label className="form-label">Kode Merek <span style={{ color: 'red' }}>*</span></label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="MRK001"
+                      value={brandCode}
+                      onChange={(e) => setBrandCode(e.target.value)}
+                      required
+                      readOnly
+                    />
+                  </div>
+                )}
 
                 <div className="form-group">
                   <label className="form-label">Nama Merek <span style={{ color: 'red' }}>*</span></label>
@@ -309,7 +369,7 @@ export default function BrandPage() {
                   />
                 </div>
 
-                <div className="form-group">
+                {/* <div className="form-group">
                   <label className="form-label">Kode Lama</label>
                   <input
                     type="text"
@@ -330,7 +390,7 @@ export default function BrandPage() {
                     onChange={(e) => setNotes(e.target.value)}
                     style={{ resize: 'vertical' }}
                   />
-                </div>
+                </div> */}
 
                 {/* Status Radio Buttons */}
                 <div className="form-group">

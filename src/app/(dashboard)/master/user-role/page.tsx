@@ -151,6 +151,42 @@ export default function UnitPage() {
     }
   };
 
+    const handleHardDelete = async (id: number) => {
+      const result = await Swal.fire({
+        title: 'Konfirmasi',
+        text: 'Apakah Anda yakin ingin menghapus user ini secara permanen?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Ya, hapus',
+        cancelButtonText: 'Batal',
+      })
+  
+      if (!result.isConfirmed) return;
+  
+      try {
+        const res = await fetch(`/api/master/user?id=${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          fetchUnits();
+        }
+        else {
+          const err = await res.json();
+          await Swal.fire({
+            icon: 'error',
+            title: 'Gagal',
+            text: err.message || 'Gagal menghapus',
+          });
+        }
+      }
+      catch (error) {
+        console.error(error);
+        await Swal.fire({
+          icon: 'error',
+          title: 'Gagal',
+          text: 'Gagal menghapus',
+        });
+      }
+    };
+
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -221,8 +257,29 @@ export default function UnitPage() {
                       >
                         ✏️
                       </button>
+
+                      {u.is_active && (
+                        <button
+                          onClick={() => handleSoftDelete(u.user_id)}
+                          className="btn btn-primary"
+                          style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                        >
+                          DEACTIVE
+                        </button>
+                      )}
+
+                      {!u.is_active && (
+                        <button
+                          onClick={() => handleSoftDelete(u.user_id)}
+                          className="btn btn-success"
+                          style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                        >
+                          ACTIVE
+                        </button>
+                      )}
+
                       <button
-                        onClick={() => handleSoftDelete(u.user_id)}
+                        onClick={() => handleHardDelete(u.user_id)}
                         className="btn btn-danger"
                         style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
                         disabled={!u.is_active}

@@ -105,10 +105,20 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ message: 'ID produk tidak valid' }, { status: 400 });
     }
 
-    // Soft delete via is_active = false
+
+    var isActive = await prisma.m_product.findUnique({
+      where: { product_id: productId },
+    }).then(product => product?.is_active ?? false);
+
+    if (!isActive) {
+      isActive = true;
+    }
+    else {
+      isActive = false;
+    }
     const softDeleted = await prisma.m_product.update({
       where: { product_id: productId },
-      data: { is_active: false },
+      data: { is_active: isActive },
     });
 
     return NextResponse.json({ message: 'Produk berhasil dinonaktifkan', data: softDeleted });

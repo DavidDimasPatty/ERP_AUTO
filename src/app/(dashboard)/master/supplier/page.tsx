@@ -159,6 +159,40 @@ export default function SupplierPage() {
     }
   };
 
+  const handleHardDelete = async (id: number) => {
+    const result = await Swal.fire({
+      title: 'Konfirmasi',
+      text: 'Apakah Anda yakin ingin menghapus supplier ini secara permanen?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, hapus',
+      cancelButtonText: 'Batal',
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const res = await fetch(`/api/master/supplier?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchSuppliers();
+      } else {
+        const err = await res.json();
+        await Swal.fire({
+          icon: 'error',
+          title: 'Gagal',
+          text: err.message || 'Gagal menghapus',
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      await Swal.fire({
+        icon: 'error',
+        title: 'Gagal',
+        text: 'Gagal menghapus',
+      });
+    }
+  };
+
   const handleSoftDelete = async (id: number) => {
     const result = await Swal.fire({
       title: 'Konfirmasi',
@@ -275,14 +309,44 @@ export default function SupplierPage() {
                       >
                         ✏️
                       </button>
+
+                      {b.is_active && (
+                        <button
+                          onClick={() => handleSoftDelete(b.supplier_id)}
+                          className="btn btn-primary"
+                          style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                        >
+                          DEACTIVE
+                        </button>
+                      )}
+
+                      {!b.is_active && (
+                        <button
+                          onClick={() => handleSoftDelete(b.supplier_id)}
+                          className="btn btn-success"
+                          style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                        >
+                          ACTIVE
+                        </button>
+                      )}
+                      
                       <button
-                        onClick={() => handleSoftDelete(b.supplier_id)}
+                        onClick={() => handleHardDelete(b.supplier_id)}
                         className="btn btn-danger"
                         style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
-                        disabled={!b.is_active}
                       >
                         🗑️
                       </button>
+                      {/* 
+                      <button
+                        onClick={() => handleSoftDelete(b.supplier_id)}
+                        className="btn btn-warning"
+                        style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                        disabled={!b.is_active}
+                      >
+                        ❌
+                      </button>
+                       */}
                     </td>
                   </tr>
                 ))
@@ -336,22 +400,27 @@ export default function SupplierPage() {
                     {formError}
                   </div>
                 )}
-                
+
                 {/* 2 Column Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   {/* Left Column */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div className="form-group">
-                      <label className="form-label">Kode Supplier <span style={{ color: 'red' }}>*</span></label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        placeholder="SUP001"
-                        value={supplierCode}
-                        onChange={(e) => setSupplierCode(e.target.value)}
-                        required
-                      />
-                    </div>
+
+                    {editId && (
+                      <div className="form-group">
+                        <label className="form-label">Kode Supplier <span style={{ color: 'red' }}>*</span></label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Isi kosong untuk generate otomatis"
+                          value={supplierCode}
+                          onChange={(e) => setSupplierCode(e.target.value)}
+                          required={!!editId}
+                          readOnly={!!editId}
+                        />
+                      </div>
+                    )}
+
                     <div className="form-group">
                       <label className="form-label">No. Telepon</label>
                       <input

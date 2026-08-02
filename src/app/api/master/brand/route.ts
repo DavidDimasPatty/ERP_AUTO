@@ -11,11 +11,11 @@ export async function GET(req: NextRequest) {
 
     const where = search
       ? {
-          OR: [
-            { brand_code: { contains: search } },
-            { brand_name: { contains: search } },
-          ],
-        }
+        OR: [
+          { brand_code: { contains: search } },
+          { brand_name: { contains: search } },
+        ],
+      }
       : {};
 
     const [total, data] = await prisma.$transaction([
@@ -46,21 +46,21 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { brand_code, brand_name } = body;
+    const { brand_name, is_active } = body;
 
-    if (!brand_code || !brand_name) {
-      return NextResponse.json({ message: 'Kode dan nama merek wajib diisi' }, { status: 400 });
+    if (!brand_name || !is_active) {
+      return NextResponse.json({ message: 'status aktif dan nama merek wajib diisi' }, { status: 400 });
     }
 
-    const count= await prisma.m_brand.count({});
+    const count = await prisma.m_brand.count({});
     var newBrandCode = '';
     if (count === 0) {
-      newBrandCode = 'BR0001';
-    }else{
-      newBrandCode = 'BR' + (count + 1).toString().padStart(4, '0');
+      newBrandCode = 'MRK0001';
+    } else {
+      newBrandCode = 'MRK' + (count + 1).toString().padStart(5, '0');
     }
 
-    const normalizedCode = brand_code.trim().toUpperCase();
+    const normalizedCode = newBrandCode.trim().toUpperCase();
     const normalizedName = brand_name.trim().toUpperCase();
 
     // Check duplicate code
@@ -72,17 +72,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Kode merek sudah terdaftar' }, { status: 400 });
     }
 
+    if (is_active !== true && is_active !== false) {
+      return NextResponse.json({ message: 'status aktif harus berupa boolean' }, { status: 400 });
+    }
+
     const newBrand = await prisma.m_brand.create({
       data: {
         brand_code: normalizedCode,
         brand_name: normalizedName,
-        is_active: true,
+        is_active: is_active,
       },
     });
 
     return NextResponse.json(newBrand, { status: 201 });
   } catch (error: any) {
     console.error('POST brand error:', error);
+    return NextResponse.json({ message: 'Kesalahan server internal' }, { status: 500 });
+  }
+}
+
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    const brandId = parseInt(id || '', 10);
+    if (isNaN(brandId)) {
+      return NextResponse.json({ message: 'ID merek tidak valid' }, { status: 400 });
+    }
+
+    const hardDeleted = await prisma.m_brand.delete({
+      where: { brand_id: brandId }
+    });
+
+    return NextResponse.json({ message: 'Merek berhasil dihapus', data: hardDeleted });
+  } catch (error: any) {
+    console.error('HARD DELETE brand error:', error);
     return NextResponse.json({ message: 'Kesalahan server internal' }, { status: 500 });
   }
 }

@@ -58,14 +58,18 @@ export async function POST(req: NextRequest) {
       notes,
     } = body;
 
-    if (!supplier_code || !supplier_name) {
-      return NextResponse.json({ message: 'Kode dan nama supplier wajib diisi' }, { status: 400 });
+    if (!supplier_name) {
+      return NextResponse.json({ message: 'Nama supplier wajib diisi' }, { status: 400 });
     }
 
-    const normalizedCode = supplier_code.trim().toUpperCase();
     const normalizedName = supplier_name.trim().toUpperCase();
+    let normalizedCode = supplier_code?.trim().toUpperCase() || '';
 
-    // Check duplicate code
+    if (!normalizedCode) {
+      const count = await prisma.m_supplier.count();
+      normalizedCode = `SUP${(count + 1).toString().padStart(5, '0')}`;
+    }
+
     const existing = await prisma.m_supplier.findUnique({
       where: { supplier_code: normalizedCode },
     });
@@ -97,6 +101,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(newSupplier, { status: 201 });
   } catch (error: any) {
     console.error('POST supplier error:', error);
+    return NextResponse.json({ message: 'Kesalahan server internal' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    const supplierId = parseInt(id || '', 10);
+    if (isNaN(supplierId)) {
+      return NextResponse.json({ message: 'ID supplier tidak valid' }, { status: 400 });
+    }
+
+    const hardDeleted = await prisma.m_supplier.delete({
+      where: { supplier_id: supplierId },
+    });
+
+    return NextResponse.json({ message: 'Supplier berhasil dihapus', data: hardDeleted });
+  } catch (error: any) {
+    console.error('HARD DELETE supplier error:', error);
     return NextResponse.json({ message: 'Kesalahan server internal' }, { status: 500 });
   }
 }

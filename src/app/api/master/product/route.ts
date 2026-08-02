@@ -65,14 +65,18 @@ export async function POST(req: NextRequest) {
       prices, // Object like { 1: 5000, 2: 4800, 3: 4600, 4: 4400, 5: 4200 }
     } = body;
 
-    if (!product_code || !product_name || !unit_id) {
-      return NextResponse.json({ message: 'Kode, nama, dan satuan wajib diisi' }, { status: 400 });
+    if (!product_name || !unit_id) {
+      return NextResponse.json({ message: 'Nama dan satuan wajib diisi' }, { status: 400 });
     }
 
-    const normalizedCode = product_code.trim().toUpperCase();
     const normalizedName = product_name.trim().toUpperCase();
+    let normalizedCode = product_code?.trim().toUpperCase() || '';
 
-    // Check duplicate code
+    if (!normalizedCode) {
+      const count = await prisma.m_product.count();
+      normalizedCode = `PRD${(count + 1).toString().padStart(5, '0')}`;
+    }
+
     const existing = await prisma.m_product.findUnique({
       where: { product_code: normalizedCode },
     });
@@ -136,5 +140,24 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('POST product error:', error);
     return NextResponse.json({ message: 'Kesalahan server internal atau data referensi tidak ditemukan' }, { status: 500 });
+  }
+}
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    const productId = parseInt(id || '', 10);
+    if (isNaN(productId)) {
+      return NextResponse.json({ message: 'ID produk tidak valid' }, { status: 400 });
+    }
+
+    const hardDeleted = await prisma.m_product.delete({
+      where: { product_id: productId },
+    });
+
+    return NextResponse.json({ message: 'Produk berhasil dihapus', data: hardDeleted });
+  } catch (error: any) {
+    console.error('HARD DELETE product error:', error);
+    return NextResponse.json({ message: 'Kesalahan server internal' }, { status: 500 });
   }
 }
