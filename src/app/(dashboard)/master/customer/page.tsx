@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Swal from 'sweetalert2';
 
 interface Customer {
   customer_id: number;
@@ -116,9 +117,22 @@ export default function CustomerPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormLoading(true);
     setFormError('');
 
+    const result = await Swal.fire({
+      title: 'Konfirmasi',
+      text: editId
+        ? 'Apakah Anda yakin ingin memperbarui data customer ini?'
+        : 'Apakah Anda yakin ingin menyimpan customer baru ini?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Ya',
+      cancelButtonText: 'Batal',
+    });
+
+    if (!result.isConfirmed) return;
+
+    setFormLoading(true);
     const url = editId ? `/api/master/customer/${editId}` : '/api/master/customer';
     const method = editId ? 'PUT' : 'POST';
 
@@ -156,18 +170,36 @@ export default function CustomerPage() {
   };
 
   const handleSoftDelete = async (id: number) => {
-    if (!confirm('Apakah Anda yakin ingin menonaktifkan customer ini?')) return;
+    const result = await Swal.fire({
+      title: 'Konfirmasi',
+      text: 'Apakah Anda yakin ingin menonaktifkan customer ini?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, nonaktifkan',
+      cancelButtonText: 'Batal',
+    });
+
+    if (!result.isConfirmed) return;
+
     try {
       const res = await fetch(`/api/master/customer/${id}`, { method: 'DELETE' });
       if (res.ok) {
         fetchCustomers();
       } else {
         const err = await res.json();
-        alert(err.message || 'Gagal menonaktifkan');
+        await Swal.fire({
+          icon: 'error',
+          title: 'Gagal',
+          text: err.message || 'Gagal menonaktifkan',
+        });
       }
     } catch (error) {
       console.error(error);
-      alert('Gagal menghapus');
+      await Swal.fire({
+        icon: 'error',
+        title: 'Gagal',
+        text: 'Gagal menghapus',
+      });
     }
   };
 

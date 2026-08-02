@@ -8,7 +8,7 @@ export async function GET(
   try {
     const { salesNumber } = await params;
     const cleanNumber = salesNumber.trim().toUpperCase();
-
+    console.log(cleanNumber);
     const sale = await prisma.t_sales.findUnique({
       where: { sales_number: cleanNumber },
       include: {

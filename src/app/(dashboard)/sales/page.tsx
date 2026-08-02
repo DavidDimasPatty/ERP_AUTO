@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Swal from 'sweetalert2';
 
 export default function SalesTransactionPage() {
   const [activeTab, setActiveTab] = useState('BENGKEL');
@@ -74,8 +75,19 @@ export default function SalesTransactionPage() {
 
   const currentProductPrice = selectedProduct ? (selectedProduct.priceMap[parseInt(selectedPriceLevel)] || 0) : 0;
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!selectedProduct) return;
+
+    const confirmAdd = await Swal.fire({
+      title: 'Konfirmasi',
+      text: 'Tambahkan produk ini ke keranjang?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, tambahkan',
+      cancelButtonText: 'Batal',
+    });
+
+    if (!confirmAdd.isConfirmed) return;
     
     // Check if already in cart
     const existingIndex = cart.findIndex(c => c.product_id === selectedProduct.product_id);
@@ -111,7 +123,18 @@ export default function SalesTransactionPage() {
     setCart(newCart);
   };
 
-  const removeCartItem = (index: number) => {
+  const removeCartItem = async (index: number) => {
+    const confirmRemove = await Swal.fire({
+      title: 'Konfirmasi',
+      text: 'Hapus item ini dari keranjang?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, hapus',
+      cancelButtonText: 'Batal',
+    });
+
+    if (!confirmRemove.isConfirmed) return;
+
     const newCart = [...cart];
     newCart.splice(index, 1);
     setCart(newCart);
@@ -130,6 +153,17 @@ export default function SalesTransactionPage() {
       setErrorMsg('Keranjang kosong, tambahkan minimal 1 produk.');
       return;
     }
+
+    const confirmSubmit = await Swal.fire({
+      title: 'Konfirmasi',
+      text: 'Apakah Anda yakin ingin menyimpan transaksi penjualan ini?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, simpan',
+      cancelButtonText: 'Batal',
+    });
+
+    if (!confirmSubmit.isConfirmed) return;
 
     if (totalAmount < 0) {
       setErrorMsg('Total tagihan tidak boleh negatif.');

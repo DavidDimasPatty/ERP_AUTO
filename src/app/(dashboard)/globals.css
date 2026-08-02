@@ -1,0 +1,97 @@
+/* src/app/(dashboard)/globals.css */
+
+/* Root variables */
+:root {
+  --primary: #6366f1;
+  --radius-md: 0.5rem;
+  --border-color: #e5e7eb;
+  --bg-primary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
+  --text-muted: #6b7280;
+  --text-secondary: #4b5563;
+  --danger-light: #fee2e2;
+  --danger: #dc2626;
+  --success-light: #d1fae5;
+  --success: #16a34a;
+}
+
+/* Layout container */
+.app-container {
+  position: relative; // Enables absolute positioning of toggle button within container
+  display: flex;
+  min-height: 100vh;
+  transition: all 0.3s ease;
+}
+
+/* Sidebar behaviour */
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+.sidebar-closed .sidebar {
+  display: none;
+}
+
+.main-content {
+  flex-grow: 1;
+  padding: 1rem;
+}
+
+/* Toggle button always visible */
+.toggle-btn {
+  display: none;
+}
+@media (max-width: 768px) {
+  .toggle-btn {
+    display: block;
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    z-index: 1100;
+  }
+}
+
+/* Dashboard main grid */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 7fr 3fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Info card grid */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+}
+@media (max-width: 768px) {
+  .info-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Table responsive */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* Responsive form grid */
+.responsive-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}

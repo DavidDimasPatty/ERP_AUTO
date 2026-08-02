@@ -9,9 +9,74 @@ export default function PurchaseReport() {
   const [end, setEnd] = useState('');
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 10;
 
   const reportData = data;
-  const totalAmount = reportData.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+
+  const getFieldValue = (item: any, key: string) => {
+    switch (key) {
+      case 'purchase_number':
+        return item.purchase_number || item.purchaseNumber || '';
+      case 'date':
+        return item.date || item.purchase_datetime || '';
+      case 'supplier':
+        return item.supplier || item.supplier_name || '';
+      case 'invoice_no':
+        return item.invoice_no || item.supplier_invoice_number || '';
+      case 'total':
+        return Number(item.total || item.total_amount || 0);
+      case 'user':
+        return item.user || item.created_by_name || '';
+      default:
+        return item[key] || '';
+    }
+  };
+
+  const filteredData = reportData.filter(item => {
+    const term = searchTerm.toLowerCase();
+    return (
+      getFieldValue(item, 'purchase_number').toString().toLowerCase().includes(term) ||
+      getFieldValue(item, 'date').toString().toLowerCase().includes(term) ||
+      getFieldValue(item, 'supplier').toString().toLowerCase().includes(term) ||
+      getFieldValue(item, 'invoice_no').toString().toLowerCase().includes(term) ||
+      getFieldValue(item, 'user').toString().toLowerCase().includes(term)
+    );
+  });
+
+  const sortedData = sortKey
+    ? [...filteredData].sort((a, b) => {
+        const aValue = getFieldValue(a, sortKey);
+        const bValue = getFieldValue(b, sortKey);
+
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+        }
+
+        return sortOrder === 'asc'
+          ? String(aValue).localeCompare(String(bValue), 'id', { numeric: true })
+          : String(bValue).localeCompare(String(aValue), 'id', { numeric: true });
+      })
+    : filteredData;
+
+  const totalPages = Math.max(1, Math.ceil(sortedData.length / rowsPerPage));
+  const paginatedData = sortedData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+
+  const totalAmount = filteredData.reduce((sum, item) => sum + Number(getFieldValue(item, 'total')), 0);
+
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortOrder('asc');
+    }
+  };
+
+  const sortIndicator = (key: string) => (sortKey === key ? (sortOrder === 'asc' ? '▲' : '▼') : '');
 
   const fetchReport = async () => {
     setLoading(true);
@@ -39,6 +104,10 @@ export default function PurchaseReport() {
   useEffect(() => {
     fetchReport();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, start, end]);
 
   const handleExportExcel = () => {
     const headers = ['No. Pembelian', 'Tanggal & Waktu', 'Supplier', 'No. Faktur Supplier', 'Total (Rp)', 'Pembuat'];
@@ -132,6 +201,10 @@ export default function PurchaseReport() {
             <label className="form-label" style={{ fontSize: '0.8rem' }}>Sampai Tanggal</label>
             <input type="date" className="form-input" value={end} onChange={e => setEnd(e.target.value)} />
           </div>
+          <div className="form-group" style={{ marginBottom: 0, flexGrow: 1 }}>
+            <label className="form-label" style={{ fontSize: '0.8rem' }}>Cari</label>
+            <input type="text" className="form-input" placeholder="Cari nomor, supplier, faktur, pembuat..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          </div>
           <button className="btn btn-primary" onClick={fetchReport} style={{ height: '38px' }}>
             🔍 Tampilkan
           </button>
@@ -167,12 +240,12 @@ export default function PurchaseReport() {
               <thead>
                 <tr>
                   <th style={{ width: '40px' }}>No</th>
-                  <th>No. Pembelian</th>
-                  <th>Tanggal & Waktu</th>
-                  <th>Supplier</th>
-                  <th>No. Faktur Supplier</th>
-                  <th style={{ textAlign: 'right' }}>Total (Rp)</th>
-                  <th>Pembuat</th>
+                  <th onClick={() => handleSort('purchase_number')} style={{ cursor: 'pointer' }}>No. Pembelian {sortIndicator('purchase_number')}</th>
+                  <th onClick={() => handleSort('date')} style={{ cursor: 'pointer' }}>Tanggal & Waktu {sortIndicator('date')}</th>
+                  <th onClick={() => handleSort('supplier')} style={{ cursor: 'pointer' }}>Supplier {sortIndicator('supplier')}</th>
+                  <th onClick={() => handleSort('invoice_no')} style={{ cursor: 'pointer' }}>No. Faktur Supplier {sortIndicator('invoice_no')}</th>
+                  <th onClick={() => handleSort('total')} style={{ cursor: 'pointer', textAlign: 'right' }}>Total (Rp) {sortIndicator('total')}</th>
+                  <th onClick={() => handleSort('user')} style={{ cursor: 'pointer' }}>Pembuat {sortIndicator('user')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -180,14 +253,14 @@ export default function PurchaseReport() {
                   <tr>
                     <td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>Memuat data laporan...</td>
                   </tr>
-                ) : reportData.length === 0 ? (
+                ) : paginatedData.length === 0 ? (
                   <tr>
                     <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Tidak ada data pembelian pada periode ini</td>
                   </tr>
                 ) : (
-                  reportData.map((row, idx) => (
+                  paginatedData.map((row, idx) => (
                     <tr key={idx}>
-                      <td>{idx + 1}</td>
+                      <td>{(currentPage - 1) * rowsPerPage + idx + 1}</td>
                       <td style={{ fontWeight: 600 }}>{row.purchase_number || '-'}</td>
                       <td>{row.date || '-'}</td>
                       <td>{row.supplier || row.supplier_name || '-'}</td>
@@ -208,6 +281,20 @@ export default function PurchaseReport() {
                 </tr>
               </tfoot>
             </table>
+          </div>
+          <div className="no-print" style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ color: 'var(--text-muted)' }}>
+              Menampilkan {paginatedData.length} dari {filteredData.length} data
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button className="btn btn-secondary" disabled={currentPage === 1} onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}>
+                Sebelumnya
+              </button>
+              <span style={{ alignSelf: 'center' }}>Halaman {currentPage} dari {totalPages}</span>
+              <button className="btn btn-secondary" disabled={currentPage === totalPages} onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}>
+                Berikutnya
+              </button>
+            </div>
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Swal from 'sweetalert2';
 
 export default function PurchaseTransactionPage() {
   const [modalOpen, setModalOpen] = useState(false);
@@ -42,7 +43,7 @@ export default function PurchaseTransactionPage() {
     fetchMasterData();
   }, []);
 
-  const handleAddProduct = () => {
+  const handleAddProduct = async () => {
     if (!selectedProduct) return;
     const prodInfo = products.find(p => p.product_id.toString() === selectedProduct);
     if (!prodInfo) return;
@@ -51,7 +52,31 @@ export default function PurchaseTransactionPage() {
     const itemPrice = parseInt(price || '0');
 
     if (itemQty <= 0 || itemPrice <= 0) {
-      alert("Kuantitas dan Harga harus lebih dari 0");
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Perhatian',
+        text: 'Kuantitas dan Harga harus lebih dari 0',
+      });
+      return;
+    }
+
+    const confirmAdd = await Swal.fire({
+      title: 'Konfirmasi',
+      text: 'Tambahkan produk ini ke keranjang?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, tambahkan',
+      cancelButtonText: 'Batal',
+    });
+
+    if (!confirmAdd.isConfirmed) return;
+
+    if (itemQty <= 0 || itemPrice <= 0) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Perhatian',
+        text: 'Kuantitas dan Harga harus lebih dari 0',
+      });
       return;
     }
 
@@ -87,6 +112,17 @@ export default function PurchaseTransactionPage() {
       setErrorMsg('Keranjang kosong, tambahkan minimal 1 produk.');
       return;
     }
+
+    const confirmSubmit = await Swal.fire({
+      title: 'Konfirmasi',
+      text: 'Apakah Anda yakin ingin menyimpan transaksi pembelian ini?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, simpan',
+      cancelButtonText: 'Batal',
+    });
+
+    if (!confirmSubmit.isConfirmed) return;
 
     setIsLoading(true);
 
@@ -324,7 +360,7 @@ export default function PurchaseTransactionPage() {
       {/* Tambah Produk Modal */}
       {modalOpen && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '400px' }}>
+          <div className="modal-content" style={{ maxWidth: '600px' }}>
             <div className="modal-header">
               <h3 style={{ fontSize: '1.1rem' }}>Tambah Produk</h3>
               <button onClick={() => setModalOpen(false)} className="close-btn">&times;</button>

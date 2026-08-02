@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import Swal from 'sweetalert2';
 
 export default function SalesReturnPage() {
   // Search State
@@ -27,33 +28,30 @@ export default function SalesReturnPage() {
     setReturnItems([]);
 
     try {
-      // Assuming check-sales returns the sale object if found and valid
-      const res = await fetch(`/api/returns/check-sales?sales_number=${encodeURIComponent(salesNumberQuery)}`);
+      const res = await fetch(`/api/returns/check-sales/${encodeURIComponent(salesNumberQuery)}`);
       const data = await res.json();
       
       if (!res.ok) {
         throw new Error(data.message || 'Transaksi tidak ditemukan atau tidak dapat diretur');
       }
 
-      setFoundSales(data.data);
+      setFoundSales(data);
       
       // Initialize return items based on details
-      if (data.data && data.data.details) {
-        const items = data.data.details.map((d: any) => {
-          // Assume API returns previous returns count. If not, default to 0.
-          // This requires checking the actual returned structure, but we'll infer it safely.
+      if (data && data.details) {
+        const items = data.details.map((d: any) => {
           const prevRet = d.previous_return_quantity || 0;
-          const maxRet = d.quantity - prevRet;
+          const maxRet = d.returnable_quantity ?? (d.sold_quantity - prevRet);
           
           return {
             sales_detail_id: d.sales_detail_id,
             product_id: d.product_id,
             product_code: d.product_code_snapshot,
             name: d.product_name_snapshot,
-            bought: d.quantity,
+            bought: d.sold_quantity,
             returned: prevRet,
             maxReturn: maxRet,
-            currentStock: d.product?.stock?.stock_quantity || 0, // Fallback if nested
+            currentStock: d.current_stock ?? 0,
             returnQty: '',
             reason: ''
           };
@@ -107,6 +105,17 @@ export default function SalesReturnPage() {
       setErrorMsg('Tentukan jumlah retur untuk minimal 1 produk.');
       return;
     }
+
+    const confirmSubmit = await Swal.fire({
+      title: 'Konfirmasi',
+      text: 'Apakah Anda yakin ingin menyimpan retur ini?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, simpan',
+      cancelButtonText: 'Batal',
+    });
+
+    if (!confirmSubmit.isConfirmed) return;
 
     // Validate max bounds
     for (const item of activeReturnItems) {
