@@ -7,17 +7,23 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search') || '';
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '10', 10);
+    const isActiveParam = searchParams.get('is_active');
     const skip = (page - 1) * limit;
+    let where: any = {};
 
-    const where = search
+    where = search
       ? {
-          OR: [
-            { customer_code: { contains: search } },
-            { customer_name: { contains: search } },
-            { city_name: { contains: search } },
-          ],
-        }
+        OR: [
+          { customer_code: { contains: search } },
+          { customer_name: { contains: search } },
+          { city_name: { contains: search } },
+        ],
+      }
       : {};
+
+    if (isActiveParam !== null && isActiveParam !== undefined) {
+      where.is_active = isActiveParam == "true";
+    }
 
     const [total, data] = await prisma.$transaction([
       prisma.m_customer.count({ where }),

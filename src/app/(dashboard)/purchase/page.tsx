@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
+import SearchableSelect from '@/components/SearchableSelect';
 
 export default function PurchaseTransactionPage() {
   const [modalOpen, setModalOpen] = useState(false);
@@ -98,6 +99,9 @@ export default function PurchaseTransactionPage() {
 
   const totalPurchase = cart.reduce((acc, item) => acc + item.line_total, 0);
   const activeSupplier = suppliers.find(s => s.supplier_id.toString() === selectedSupplier);
+
+  const currentProduct = products.find(p => p.product_id.toString() === selectedProduct);
+  const currentProductUnit = currentProduct?.unit?.unit_name || '-';
 
   const handleSubmit = async () => {
     setErrorMsg('');
@@ -210,12 +214,13 @@ export default function PurchaseTransactionPage() {
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Supplier <span style={{ color: 'var(--danger)' }}>*</span></label>
-              <select className="form-select form-input" value={selectedSupplier} onChange={e => setSelectedSupplier(e.target.value)}>
-                <option value="">Pilih supplier</option>
-                {suppliers.map(s => (
-                  <option key={s.supplier_id} value={s.supplier_id}>{s.supplier_name}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={selectedSupplier}
+                options={suppliers.map(s => ({ value: s.supplier_id.toString(), label: s.supplier_name }))}
+                onChange={value => setSelectedSupplier(value)}
+                placeholder="Cari supplier..."
+                className="form-select form-input"
+              />
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">No. Faktur Supplier</label>
@@ -231,7 +236,14 @@ export default function PurchaseTransactionPage() {
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Catatan</label>
-              <textarea className="form-input" placeholder="Masukkan catatan (opsional)" value={notes} onChange={e => setNotes(e.target.value)} style={{ minHeight: '80px', resize: 'vertical' }}></textarea>
+              <textarea className="form-input"
+                placeholder="Masukkan catatan (opsional)"
+                value={notes}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^a-zA-Z0-9\s.,()\-_/]/g, "");
+                  setNotes(value);
+                }}
+                style={{ minHeight: '80px', resize: 'vertical' }}></textarea>
             </div>
           </div>
 
@@ -275,8 +287,8 @@ export default function PurchaseTransactionPage() {
                 <th style={{ padding: '1rem 1.5rem', width: '50px' }}>No</th>
                 <th style={{ padding: '1rem 1.5rem' }}>Produk</th>
                 <th style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>Satuan</th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>Jumlah (PCS)</th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>Harga Beli / PCS</th>
+                <th style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>Jumlah</th>
+                <th style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>Harga Beli </th>
                 <th style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>Total Harga</th>
                 <th style={{ padding: '1rem 1.5rem', textAlign: 'center', width: '80px' }}>Aksi</th>
               </tr>
@@ -336,8 +348,8 @@ export default function PurchaseTransactionPage() {
             <span>ℹ️</span> Catatan
           </h4>
           <ul style={{ marginLeft: '1.5rem', color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            <li>Jumlah pembelian harus dalam satuan PCS.</li>
-            <li>Harga beli adalah harga per PCS.</li>
+            <li>Jumlah pembelian harus mengikuti satuan produk.</li>
+            <li>Harga beli adalah harga per satuan pembelian.</li>
             <li>Total harga per produk harus sesuai dengan faktur supplier.</li>
             <li>Setelah disimpan, stok akan bertambah otomatis.</li>
           </ul>
@@ -365,35 +377,41 @@ export default function PurchaseTransactionPage() {
             <div className="modal-body">
               <div className="form-group">
                 <label className="form-label">Produk <span style={{ color: 'var(--danger)' }}>*</span></label>
-                <select className="form-select form-input" value={selectedProduct} onChange={(e) => setSelectedProduct(e.target.value)}>
-                  <option value="">Cari produk berdasarkan kode atau nama...</option>
-                  {products.map(p => (
-                    <option key={p.product_id} value={p.product_id}>{p.product_code} - {p.product_name}</option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  value={selectedProduct}
+                  options={products.map(p => ({ value: p.product_id.toString(), label: `${p.product_code} - ${p.product_name}` }))}
+                  onChange={value => setSelectedProduct(value)}
+                  placeholder="Cari produk berdasarkan kode atau nama..."
+                  className="form-select form-input"
+                />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
                   <label className="form-label">Satuan</label>
-                  <input type="text" className="form-input" value="PCS" readOnly style={{ background: 'var(--bg-tertiary)' }} />
+                  <input type="text" className="form-input" value={currentProductUnit} readOnly style={{ background: 'var(--bg-tertiary)' }} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Jumlah (PCS) <span style={{ color: 'var(--danger)' }}>*</span></label>
+                  <label className="form-label">Jumlah <span style={{ color: 'var(--danger)' }}>*</span></label>
                   <input type="number" className="form-input" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" min="1" />
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label">Harga Beli / PCS <span style={{ color: 'var(--danger)' }}>*</span></label>
+                  <label className="form-label">Harga Beli <span style={{ color: 'var(--danger)' }}>*</span></label>
                   <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
                     <span style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>Rp</span>
                     <input
                       type="text"
                       className="form-input"
-                      value={Number(price || 0).toLocaleString('id-ID')}
+                      inputMode="numeric"
+                      value={
+                        price === ""
+                          ? ""
+                          : Number(price).toLocaleString("id-ID")
+                      }
                       onChange={(e) => {
-                        const value = e.target.value.replace(/\./g, '');
-                        setPrice(value);
+                        const raw = e.target.value.replace(/\D/g, "");
+                        setPrice(raw);
                       }}
                       style={{ border: 'none', background: 'transparent', width: '100%', color: 'var(--text-primary)', outline: 'none' }} placeholder="0" />
                   </div>

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
+import SearchableSelect from '@/components/SearchableSelect';
 
 interface Product {
   product_id: number;
@@ -62,12 +63,12 @@ export default function ProductPage() {
 
   const fetchUnitsAndBrands = async () => {
     try {
-      const resU = await fetch('/api/master/unit?limit=100');
+      const resU = await fetch('/api/master/unit?is_active=true');
       if (resU.ok) {
         const jU = await resU.json();
         setUnits(jU.data || []);
       }
-      const resB = await fetch('/api/master/brand?limit=100');
+      const resB = await fetch('/api/master/brand?is_active=true');
       if (resB.ok) {
         const jB = await resB.json();
         setBrands(jB.data || []);
@@ -434,31 +435,24 @@ export default function ProductPage() {
 
                     <div className="form-group">
                       <label className="form-label">Satuan <span style={{ color: 'red' }}>*</span></label>
-                      <select
-                        className="form-select form-input"
+                      <SearchableSelect
                         value={unitId}
-                        onChange={(e) => setUnitId(e.target.value)}
-                        required
-                      >
-                        <option value="">Pilih Satuan</option>
-                        {units.map(u => (
-                          <option key={u.unit_id} value={u.unit_id}>{u.unit_name}</option>
-                        ))}
-                      </select>
+                        options={units.map(u => ({ value: u.unit_id.toString(), label: u.unit_name }))}
+                        onChange={(value) => setUnitId(value)}
+                        placeholder="Cari satuan..."
+                        className="form-select form-input"
+                      />
                     </div>
 
                     <div className="form-group">
                       <label className="form-label">Merek</label>
-                      <select
-                        className="form-select form-input"
+                      <SearchableSelect
                         value={brandId}
-                        onChange={(e) => setBrandId(e.target.value)}
-                      >
-                        <option value="">Pilih Merek (Opsional)</option>
-                        {brands.map(b => (
-                          <option key={b.brand_id} value={b.brand_id}>{b.brand_name}</option>
-                        ))}
-                      </select>
+                        options={brands.map(b => ({ value: b.brand_id.toString(), label: b.brand_name }))}
+                        onChange={(value) => setBrandId(value)}
+                        placeholder="Cari merek..."
+                        className="form-select form-input"
+                      />
                     </div>
 
                     <div className="form-group">
@@ -484,10 +478,20 @@ export default function ProductPage() {
                         <input
                           type="text"
                           className="form-input"
-                          value={Number(costPrice || 0).toLocaleString('id-ID')}
+                          // value={Number(costPrice || 0).toLocaleString('id-ID')}
+                          // onChange={(e) => {
+                          //   const value = e.target.value.replace(/\./g, '');
+                          //   setCostPrice(value);
+                          // }}
+                          inputMode="numeric"
+                          value={
+                            costPrice === ""
+                              ? ""
+                              : Number(costPrice).toLocaleString("id-ID")
+                          }
                           onChange={(e) => {
-                            const value = e.target.value.replace(/\./g, '');
-                            setCostPrice(value);
+                            const raw = e.target.value.replace(/\D/g, "");
+                            setCostPrice(raw);
                           }}
                           style={{ border: 'none', background: 'transparent' }}
                         />
@@ -511,15 +515,24 @@ export default function ProductPage() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
                         {[1, 2, 3, 4, 5].map(level => (
                           <div key={level} style={{ display: 'grid', gridTemplateColumns: '80px 30px 1fr', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Harga {level}</span>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Harga {level} {level === 1 && <span style={{ color: 'red', marginLeft: '2px' }}>*</span>}</span>
                             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Rp</span>
                             <input
                               type="text"
                               className="form-input"
-                              value={Number(prices[level as keyof typeof prices] || 0).toLocaleString('id-ID')}
-                              onChange={(e) => {
-                                const value = e.target.value.replace(/\./g, '');
-                                setPrices({ ...prices, [level]: value });
+                              // value={Number(prices[level as keyof typeof prices] || 0).toLocaleString('id-ID')}
+                              // onChange={(e) => {
+                              //   const value = e.target.value.replace(/\./g, '');
+                              //   setPrices({ ...prices, [level]: value });
+                              // }}
+                              inputMode="numeric"
+                              value={
+                                prices[level as keyof typeof prices] === ""
+                                  ? ""
+                                  : Number(prices[level as keyof typeof prices]).toLocaleString("id-ID")
+                              } onChange={(e) => {
+                                const raw = e.target.value.replace(/\D/g, "");
+                                setPrices({ ...prices, [level]: raw });
                               }}
                               style={{ padding: '0.3rem 0.5rem', textAlign: 'right' }}
 

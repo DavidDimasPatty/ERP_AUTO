@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
+import SearchableSelect from '@/components/SearchableSelect';
 
 export default function SalesTransactionPage() {
-  const [activeTab, setActiveTab] = useState('BENGKEL');
+  const [activeTab, setActiveTab] = useState('ECERAN');
 
   // Master Data
   const [customers, setCustomers] = useState<any[]>([]);
@@ -33,20 +34,28 @@ export default function SalesTransactionPage() {
   const [isPrintReady, setIsPrintReady] = useState(false);
 
   // Fetch Master Data
-  useEffect(() => {
-    const fetchMasterData = async () => {
-      try {
-        const resCust = await fetch('/api/master/customer?is_active=true');
-        const dataCust = await resCust.json();
-        if (dataCust.data) setCustomers(dataCust.data);
-
-        const resProd = await fetch('/api/master/product?is_active=true');
-        const dataProd = await resProd.json();
-        if (dataProd.data) setProducts(dataProd.data);
-      } catch (err) {
-        console.error('Error fetching master data:', err);
+  const fetchMasterData = async () => {
+    try {
+      const resCust = await fetch('/api/master/customer?is_active=true');
+      const dataCust = await resCust.json();
+      if (dataCust.data) {
+        const defaultCustomer = {
+          customer_id: 0,
+          customer_name: 'Pelanggan Umum',
+          customer_code: 'UMUM',
+          is_active: true,
+        };
+        setCustomers([defaultCustomer, ...dataCust.data]);
       }
-    };
+      const resProd = await fetch('/api/master/product?is_active=true');
+      const dataProd = await resProd.json();
+      if (dataProd.data) setProducts(dataProd.data);
+    } catch (err) {
+      console.error('Error fetching master data:', err);
+    }
+  };
+
+  useEffect(() => {
     fetchMasterData();
   }, []);
 
@@ -71,15 +80,13 @@ export default function SalesTransactionPage() {
   }, []);
 
   // Handle Product Search/Selection
-  const handleProductSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const pId = e.target.value;
-    if (!pId) {
+  const handleProductSelect = (productId: string) => {
+    if (!productId) {
       setSelectedProduct(null);
       return;
     }
-    const prod = products.find(p => p.product_id.toString() === pId);
+    const prod = products.find(p => p.product_id.toString() === productId);
     if (prod) {
-      // transform prices array to object map for easy access
       const priceMap: Record<number, number> = {};
       if (prod.prices) {
         prod.prices.forEach((p: any) => {
@@ -167,7 +174,7 @@ export default function SalesTransactionPage() {
   const totalAmount = subtotal - discountAmount;
   const returnAmount = (parseInt(tenderedAmount || '0')) - totalAmount;
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (cetak: boolean) => {
     setErrorMsg('');
     setSuccessMsg('');
 
@@ -235,14 +242,17 @@ export default function SalesTransactionPage() {
       }
 
       setSuccessMsg(`Transaksi berhasil disimpan dengan No: ${data.sales_number}`);
-      setReceiptData(data);
-      setIsPrintReady(true);
+      if (cetak) {
+        setReceiptData(data);
+        setIsPrintReady(true);
+      }
       // Reset form
       setCart([]);
       setSelectedCustomer('');
       setTenderedAmount('');
       setDiscountAmount(0);
       setNotes('');
+      fetchMasterData();
 
     } catch (err: any) {
       setErrorMsg(err.message);
@@ -373,19 +383,25 @@ export default function SalesTransactionPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Customer (Opsional)</label>
-              <select className="form-select form-input" value={selectedCustomer} onChange={(e) => setSelectedCustomer(e.target.value)}>
-                <option value="">Pelanggan Umum</option>
-                {customers.map(c => (
-                  <option key={c.customer_id} value={c.customer_id}>{c.customer_name} ({c.customer_code})</option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={selectedCustomer}
+                options={customers.map(c => ({ value: c.customer_id.toString(), label: `${c.customer_name} (${c.customer_code})` }))}
+                onChange={(value) => setSelectedCustomer(value)}
+                placeholder="Cari customer atau kode..."
+                className="form-select form-input"
+              />
             </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Catatan (Opsional)</label>
-              <input type="text" className="form-input" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Masukkan catatan..." />
+              <input type="text" className="form-input" value={notes}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^a-zA-Z0-9\s.,()\-_/]/g, "");
+                  setNotes(value);
+                }}
+                placeholder="Masukkan catatan..." />
             </div>
           </div>
 
@@ -393,8 +409,23 @@ export default function SalesTransactionPage() {
             <div>
               <label className="form-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Jenis Penjualan</label>
               {/* <span className="badge" style={{ background: 'rgba(99,102,241,0.1)', color: 'var(--primary)', padding: '0.4rem 0.8rem' }}>{activeTab}</span> */}
-              <input type='radio' className='jenis' name='jenis' defaultChecked /> <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem' }}>Penjualan Bengkel</span>
-              <input type='radio' style={{ marginLeft: '1rem' }} name='jenis' /> <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem' }}>Penjualan Eceran</span>
+              <input onChange={
+                async (e) => {
+                  const nextTab = e.target.value;
+                  const isGeneralCustomer = !selectedCustomer || selectedCustomer === '0';
+                  if (nextTab === 'BENGKEL' && isGeneralCustomer) {
+                    await Swal.fire({
+                      title: "Peringatan",
+                      text: "Penjualan Bengkel membutuhkan customer yang terdaftar.",
+                      icon: "warning",
+                      confirmButtonText: "Close",
+                    });
+                    return;
+                  }
+                  setActiveTab(nextTab);
+                }
+              } value="BENGKEL" type='radio' className='jenis' name='jenis' checked={activeTab === "BENGKEL"} /> <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem' }}>Penjualan Bengkel</span>
+              <input onChange={(e) => setActiveTab(e.target.value)} value="ECERAN" checked={activeTab === "ECERAN"} type='radio' style={{ marginLeft: '1rem' }} name='jenis' /> <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem' }}>Penjualan Eceran</span>
             </div>
           </div>
 
@@ -412,19 +443,33 @@ export default function SalesTransactionPage() {
             <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Pilih Produk</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <select className="form-select form-input" onChange={handleProductSelect} value={selectedProduct?.product_id || ''}>
-                  <option value="">-- Pilih Produk --</option>
-                  {products.map(p => (
-                    <option key={p.product_id} value={p.product_id}>{p.product_code} - {p.product_name}</option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  value={selectedProduct?.product_id?.toString() || ''}
+                  options={products.map(p => ({ value: p.product_id.toString(), label: `${p.product_code} - ${p.product_name}` }))}
+                  onChange={(value) => handleProductSelect(value)}
+                  placeholder="-- Pilih Produk --"
+                  className="form-select form-input"
+                />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem' }}>Level Harga</label>
-                <select className="form-select form-input" style={{ padding: '0.5rem' }} value={selectedPriceLevel} onChange={e => setSelectedPriceLevel(e.target.value)}>
-                  {[1, 2, 3, 4, 5].map(lvl => (
-                    <option key={lvl} value={lvl}>Harga {lvl}</option>
-                  ))}
+                <select
+                  value={selectedPriceLevel}
+                  onChange={(e) => setSelectedPriceLevel(e.target.value)}
+                  className="form-select form-input"
+                  style={{ width: '100%', padding: '0.65rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+                >
+                  {activeTab === 'BENGKEL' ? (
+                    [3, 4, 5].map((lvl) => (
+                      <option key={lvl} value={lvl.toString()}>{`Harga ${lvl}`}</option>
+                    ))
+
+                  ) : (
+                    [1, 2, 3, 4, 5].map((lvl) => (
+                      <option key={lvl} value={lvl.toString()}>{`Harga ${lvl}`}</option>
+                    ))
+                  )}
+
                 </select>
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
@@ -513,7 +558,24 @@ export default function SalesTransactionPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <span style={{ color: 'var(--text-secondary)' }}>Diskon (Rp)</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <input type="number" className="form-input" value={discountAmount || ''} onChange={(e) => setDiscountAmount(parseInt(e.target.value) || 0)} style={{ width: '100px', padding: '0.4rem', textAlign: 'right' }} min="0" />
+                <input
+                  // type="number"
+                  //   className="form-input"
+                  //   value={discountAmount || ''}
+                  //   onChange={(e) => setDiscountAmount(parseInt(e.target.value) || 0)}
+                  type="text"
+                  className="form-input"
+                  inputMode="numeric"
+                  value={
+                    discountAmount == 0
+                      ? 0
+                      : Number(discountAmount).toLocaleString("id-ID")
+                  }
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, "");
+                    setDiscountAmount(Number(raw || 0));
+                  }}
+                  style={{ width: '200px', padding: '0.4rem', textAlign: 'right' }} min="0" />
               </div>
             </div>
             <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -526,11 +588,17 @@ export default function SalesTransactionPage() {
             <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem' }}>Pembayaran</h3>
             <div className="form-group">
               <label className="form-label">Metode Pembayaran</label>
-              <select className="form-select form-input" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
-                <option value="CASH">Tunai (CASH)</option>
-                <option value="TRANSFER">Transfer Bank</option>
-                <option value="QRIS">QRIS</option>
-              </select>
+              <SearchableSelect
+                value={paymentMethod}
+                options={[
+                  { value: 'CASH', label: 'Tunai (CASH)' },
+                  { value: 'TRANSFER', label: 'Transfer Bank' },
+                  { value: 'QRIS', label: 'QRIS' },
+                ]}
+                onChange={(value) => setPaymentMethod(value)}
+                placeholder="Pilih metode pembayaran..."
+                className="form-select form-input"
+              />
             </div>
             <div className="form-group">
               <label className="form-label">Uang Diterima (Rp)</label>
@@ -539,10 +607,20 @@ export default function SalesTransactionPage() {
                 className="form-input"
                 // value={tenderedAmount}
                 // onChange={(e) => setTenderedAmount(e.target.value)}
-                value={Number(tenderedAmount || 0).toLocaleString('id-ID')}
+                // value={Number(tenderedAmount || 0).toLocaleString('id-ID')}
+                // onChange={(e) => {
+                //   const value = e.target.value.replace(/\./g, '');
+                //   setTenderedAmount(value);
+                // }}
+                inputMode="numeric"
+                value={
+                  tenderedAmount === ""
+                    ? ""
+                    : Number(tenderedAmount).toLocaleString("id-ID")
+                }
                 onChange={(e) => {
-                  const value = e.target.value.replace(/\./g, '');
-                  setTenderedAmount(value);
+                  const raw = e.target.value.replace(/\D/g, "");
+                  setTenderedAmount(raw);
                 }}
                 style={{ fontSize: '1.2rem', fontWeight: 600 }}
               />
@@ -556,9 +634,12 @@ export default function SalesTransactionPage() {
               </div>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
-              <button className="btn btn-primary" style={{ padding: '1rem', fontSize: '1rem' }} onClick={handleSubmit} disabled={isLoading}>
-                {isLoading ? 'Menyimpan...' : '💾 Simpan Transaksi'}
+            <div style={{ justifyContent: 'space-between', display: 'flex', flexDirection: 'row', gap: '0.75rem', marginTop: '1rem' }}>
+              <button className="btn btn-primary" style={{ padding: '1rem', fontSize: '1rem' }} onClick={() => handleSubmit(true)} disabled={isLoading}>
+                {isLoading ? 'Menyimpan...' : '🖨️ Simpan  dan Cetak'}
+              </button>
+              <button className="btn btn-primary" style={{ padding: '1rem', fontSize: '1rem' }} onClick={() => handleSubmit(false)} disabled={isLoading}>
+                {isLoading ? 'Menyimpan...' : '💾 Simpan '}
               </button>
             </div>
           </div>

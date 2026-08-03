@@ -17,7 +17,7 @@
 
 /* Layout container */
 .app-container {
-  position: relative; // Enables absolute positioning of toggle button within container
+  position: relative; 
   display: flex;
   min-height: 100vh;
   transition: all 0.3s ease;

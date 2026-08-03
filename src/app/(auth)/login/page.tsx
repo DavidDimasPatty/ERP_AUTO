@@ -43,7 +43,7 @@ export default function LoginPage() {
       alignItems: 'center',
       justifyContent: 'center',
       minHeight: '100vh',
-      background: 'radial-gradient(circle at top right, #1e1b4b, #0b0f19)',
+      background: 'radial-gradient(circle at top right, #b32525, #0b0f19)',
       padding: '1.5rem'
     }}>
       <div className="card" style={{ width: '100%', maxWidth: '420px', padding: '2.5rem' }}>

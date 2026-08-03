@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
+import SearchableSelect from '@/components/SearchableSelect';
 
 interface UserRole {
   user_id: number;
@@ -151,41 +152,41 @@ export default function UnitPage() {
     }
   };
 
-    const handleHardDelete = async (id: number) => {
-      const result = await Swal.fire({
-        title: 'Konfirmasi',
-        text: 'Apakah Anda yakin ingin menghapus user ini secara permanen?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Ya, hapus',
-        cancelButtonText: 'Batal',
-      })
-  
-      if (!result.isConfirmed) return;
-  
-      try {
-        const res = await fetch(`/api/master/user?id=${id}`, { method: 'DELETE' });
-        if (res.ok) {
-          fetchUnits();
-        }
-        else {
-          const err = await res.json();
-          await Swal.fire({
-            icon: 'error',
-            title: 'Gagal',
-            text: err.message || 'Gagal menghapus',
-          });
-        }
+  const handleHardDelete = async (id: number) => {
+    const result = await Swal.fire({
+      title: 'Konfirmasi',
+      text: 'Apakah Anda yakin ingin menghapus user ini secara permanen?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, hapus',
+      cancelButtonText: 'Batal',
+    })
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const res = await fetch(`/api/master/user?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchUnits();
       }
-      catch (error) {
-        console.error(error);
+      else {
+        const err = await res.json();
         await Swal.fire({
           icon: 'error',
           title: 'Gagal',
-          text: 'Gagal menghapus',
+          text: err.message || 'Gagal menghapus',
         });
       }
-    };
+    }
+    catch (error) {
+      console.error(error);
+      await Swal.fire({
+        icon: 'error',
+        title: 'Gagal',
+        text: 'Gagal menghapus',
+      });
+    }
+  };
 
   return (
     <>
@@ -240,55 +241,57 @@ export default function UnitPage() {
                   </td>
                 </tr>
               ) : (
-                data.map((u) => (
-                  <tr key={u.user_id}>
-                    <td style={{ fontWeight: 700 }}>{u.full_name}</td>
-                    <td>{u.username}</td>
-                    <td>
-                      <span className={`badge ${u.is_active ? 'badge-success' : 'badge-danger'}`}>
-                        {u.is_active ? 'Aktif' : 'Tidak Aktif'}
-                      </span>
-                    </td>
-                    <td style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
-                      <button
-                        onClick={() => handleOpenEdit(u)}
-                        className="btn btn-secondary"
-                        style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
-                      >
-                        ✏️
-                      </button>
-
-                      {u.is_active && (
+                data.map((u) =>
+                  u.user_id !== 1 ? (
+                    <tr key={u.user_id}>
+                      <td style={{ fontWeight: 700 }}>{u.full_name}</td>
+                      <td>{u.username}</td>
+                      <td>
+                        <span className={`badge ${u.is_active ? 'badge-success' : 'badge-danger'}`}>
+                          {u.is_active ? 'Aktif' : 'Tidak Aktif'}
+                        </span>
+                      </td>
+                      <td style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
                         <button
-                          onClick={() => handleSoftDelete(u.user_id)}
-                          className="btn btn-primary"
+                          onClick={() => handleOpenEdit(u)}
+                          className="btn btn-secondary"
                           style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
                         >
-                          DEACTIVE
+                          ✏️
                         </button>
-                      )}
 
-                      {!u.is_active && (
+                        {u.is_active && (
+                          <button
+                            onClick={() => handleSoftDelete(u.user_id)}
+                            className="btn btn-primary"
+                            style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                          >
+                            DEACTIVE
+                          </button>
+                        )}
+
+                        {!u.is_active && (
+                          <button
+                            onClick={() => handleSoftDelete(u.user_id)}
+                            className="btn btn-success"
+                            style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                          >
+                            ACTIVE
+                          </button>
+                        )}
+
                         <button
-                          onClick={() => handleSoftDelete(u.user_id)}
-                          className="btn btn-success"
+                          onClick={() => handleHardDelete(u.user_id)}
+                          className="btn btn-danger"
                           style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                          disabled={!u.is_active}
                         >
-                          ACTIVE
+                          🗑️
                         </button>
-                      )}
-
-                      <button
-                        onClick={() => handleHardDelete(u.user_id)}
-                        className="btn btn-danger"
-                        style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
-                        disabled={!u.is_active}
-                      >
-                        🗑️
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                    </tr>
+                  ) : null
+                )
               )}
             </tbody>
           </table>
@@ -381,16 +384,16 @@ export default function UnitPage() {
                 {/* Role Dropdown */}
                 <div className="form-group">
                   <label className="form-label" htmlFor="roleId">Role</label>
-                  <select
-                    id="roleId"
-                    className="form-input"
+                  <SearchableSelect
                     value={roleId}
-                    onChange={(e) => setRoleId(e.target.value)}
-                    required
-                  >
-                    <option value="1">Super Admin</option>
-                    <option value="2">Kasir</option>
-                  </select>
+                    options={[
+                      { value: '1', label: 'Super Admin' },
+                      { value: '2', label: 'Kasir' },
+                    ]}
+                    onChange={(value) => setRoleId(value)}
+                    placeholder="Pilih role..."
+                    className="form-input"
+                  />
                 </div>
                 {editId && (
                   <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem', marginTop: '1rem' }}>

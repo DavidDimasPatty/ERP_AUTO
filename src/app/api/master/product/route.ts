@@ -20,9 +20,9 @@ export async function GET(req: NextRequest) {
         ],
       }
       : {};
-      
+
     if (isActiveParam !== null && isActiveParam !== undefined) {
-      where.is_active = isActiveParam=="true";
+      where.is_active = isActiveParam == "true";
     }
 
     const [total, data] = await prisma.$transaction([
@@ -74,6 +74,10 @@ export async function POST(req: NextRequest) {
 
     if (!product_name || !unit_id) {
       return NextResponse.json({ message: 'Nama dan satuan wajib diisi' }, { status: 400 });
+    }
+
+    if (prices[0] == undefined || prices[0] == null || prices[0] == '' || prices[0] <= 0) {
+      return NextResponse.json({ message: 'Harga level 1 wajib diisi' }, { status: 400 });
     }
 
     const normalizedName = product_name.trim().toUpperCase();

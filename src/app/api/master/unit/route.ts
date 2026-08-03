@@ -8,8 +8,10 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '10', 10);
     const skip = (page - 1) * limit;
+    const isActiveParam = searchParams.get('is_active');
+    let where: any = {};
 
-    const where = search
+    where = search
       ? {
         OR: [
           { unit_code: { contains: search } },
@@ -17,7 +19,10 @@ export async function GET(req: NextRequest) {
         ],
       }
       : {};
-
+      
+    if (isActiveParam !== null && isActiveParam !== undefined) {
+      where.is_active = isActiveParam == "true";
+    }
     const [total, data] = await prisma.$transaction([
       prisma.m_unit.count({ where }),
       prisma.m_unit.findMany({

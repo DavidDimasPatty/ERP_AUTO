@@ -1,4 +1,4 @@
-// Fetch returns from API
+
 export async function fetchReturns(): Promise<any[]> {
   const res = await fetch('/api/returns');
   if (!res.ok) {

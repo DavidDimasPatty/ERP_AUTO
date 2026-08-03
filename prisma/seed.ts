@@ -86,6 +86,10 @@ async function main() {
     { menu_code: 'PURCHASE', menu_name: 'Pembelian', route_path: '/purchase', sort_order: 9 },
     { menu_code: 'SALES', menu_name: 'Penjualan', route_path: '/sales', sort_order: 10 },
     { menu_code: 'RETURN', menu_name: 'Retur Penjualan', route_path: '/returns', sort_order: 11 },
+    { menu_code: 'REPORT', menu_name: 'Report', route_path: null, sort_order: 12 },
+    { menu_code: 'REPORT_PURCHASE', menu_name: 'Report Purchase', route_path: '/laporan/purchase', sort_order: 13 },
+    { menu_code: 'REPORT_SALE', menu_name: 'Report Sale', route_path: '/laporan/sales', sort_order: 14 },
+    { menu_code: 'REPORT_RETUR_SALE', menu_name: 'Report Retur', route_path: '/laporan/retur', sort_order: 15 },
   ];
 
   // Insert parents first
@@ -136,7 +140,7 @@ async function main() {
   await prisma.m_role_menu.deleteMany({});
 
   const allMenus = await prisma.m_menu.findMany({});
-  
+
   // ADMIN role gets all menus
   for (const menu of allMenus) {
     await prisma.m_role_menu.create({

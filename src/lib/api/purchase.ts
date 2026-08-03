@@ -1,4 +1,4 @@
-// Fetch purchases from API
+
 export async function fetchPurchases(): Promise<any[]> {
   const res = await fetch('/api/purchase');
   if (!res.ok) {

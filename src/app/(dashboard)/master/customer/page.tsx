@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
+import SearchableSelect from '@/components/SearchableSelect';
 
 interface Customer {
   customer_id: number;
@@ -428,15 +429,17 @@ export default function CustomerPage() {
 
                     <div className="form-group">
                       <label className="form-label">Jenis Customer <span style={{ color: 'red' }}>*</span></label>
-                      <select
-                        className="form-select form-input"
+                      <SearchableSelect
                         value={customerType}
-                        onChange={(e) => setCustomerType(e.target.value)}
-                      >
-                        <option value="Bengkel">Bengkel</option>
-                        <option value="Eceran">Eceran</option>
-                        <option value="Grosir">Grosir</option>
-                      </select>
+                        options={[
+                          { value: 'Bengkel', label: 'Bengkel' },
+                          { value: 'Eceran', label: 'Eceran' },
+                          { value: 'Grosir', label: 'Grosir' },
+                        ]}
+                        onChange={(value) => setCustomerType(value)}
+                        placeholder="Pilih jenis customer..."
+                        className="form-select form-input"
+                      />
                     </div>
                     <div className="form-group">
                       <label className="form-label">Email</label>
@@ -526,14 +529,16 @@ export default function CustomerPage() {
                     </div>
                     <div className="form-group">
                       <label className="form-label">Blokir Kredit</label>
-                      <select
-                        className="form-select form-input"
+                      <SearchableSelect
                         value={isCreditBlocked}
-                        onChange={(e) => setIsCreditBlocked(e.target.value)}
-                      >
-                        <option value="Tidak">Tidak</option>
-                        <option value="Ya">Ya</option>
-                      </select>
+                        options={[
+                          { value: 'Tidak', label: 'Tidak' },
+                          { value: 'Ya', label: 'Ya' },
+                        ]}
+                        onChange={(value) => setIsCreditBlocked(value)}
+                        placeholder="Pilih status kredit..."
+                        className="form-select form-input"
+                      />
                     </div>
                   </div>
                 </div>
