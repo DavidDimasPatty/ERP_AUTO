@@ -12,7 +12,7 @@ export default function SalesTransactionPage() {
   const [products, setProducts] = useState<any[]>([]);
 
   // Form State
-  const [selectedCustomer, setSelectedCustomer] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState('0');
   const [notes, setNotes] = useState('');
 
   // Cart & Product Search State
@@ -253,7 +253,8 @@ export default function SalesTransactionPage() {
       setDiscountAmount(0);
       setNotes('');
       fetchMasterData();
-
+      setActiveTab("ECERAN");
+      setSelectedPriceLevel("1");
     } catch (err: any) {
       setErrorMsg(err.message);
     } finally {
@@ -384,6 +385,7 @@ export default function SalesTransactionPage() {
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Customer (Opsional)</label>
               <SearchableSelect
+
                 value={selectedCustomer}
                 options={customers.map(c => ({ value: c.customer_id.toString(), label: `${c.customer_name} (${c.customer_code})` }))}
                 onChange={(value) => setSelectedCustomer(value)}

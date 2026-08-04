@@ -82,6 +82,9 @@ export async function POST(req: NextRequest) {
     if (!sales_type || !['BENGKEL', 'ECERAN'].includes(sales_type)) {
       return NextResponse.json({ message: 'Jenis penjualan tidak valid (BENGKEL/ECERAN)' }, { status: 400 });
     }
+    if (sales_type == "BENGKEL" && (customer_id == "0" || customer_id == undefined || customer_id == "")) {
+      return NextResponse.json({ message: 'Penjualan BENGKEL harus memilih customer' }, { status: 400 });
+    }
     if (!details || !Array.isArray(details) || details.length === 0) {
       return NextResponse.json({ message: 'Minimal harus ada 1 produk dalam transaksi' }, { status: 400 });
     }
@@ -117,7 +120,7 @@ export async function POST(req: NextRequest) {
       // Verify customer
       let customerName = 'Pelanggan Umum';
       let finalCustomerId = null;
-      if (customer_id) {
+      if (customer_id && parseInt(customer_id, 10) !== 0) {
         const customer = await tx.m_customer.findUnique({
           where: { customer_id: parseInt(customer_id, 10) },
         });

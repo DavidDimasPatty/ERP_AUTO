@@ -330,13 +330,13 @@ export default function SupplierPage() {
                         </button>
                       )}
                       
-                      <button
+                      {/* <button
                         onClick={() => handleHardDelete(b.supplier_id)}
                         className="btn btn-danger"
                         style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
                       >
                         🗑️
-                      </button>
+                      </button> */}
                       {/* 
                       <button
                         onClick={() => handleSoftDelete(b.supplier_id)}

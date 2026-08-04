@@ -278,13 +278,13 @@ export default function BrandPage() {
                         </button>
                       )}
                       
-                      <button
+                      {/* <button
                         onClick={() => handleHardDelete(b.brand_id)}
                         className="btn btn-danger"
                         style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
                       >
                         🗑️
-                      </button>
+                      </button> */}
 
 
 

@@ -270,14 +270,14 @@ export default function UnitPage() {
                         </button>
                       )}
 
-                      <button
+                      {/* <button
                         onClick={() => handleHardDelete(u.unit_id)}
                         className="btn btn-danger"
                         style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
                         disabled={!u.is_active}
                       >
                         🗑️
-                      </button>
+                      </button> */}
 
                     </td>
                   </tr>

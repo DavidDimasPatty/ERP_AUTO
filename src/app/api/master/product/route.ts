@@ -76,7 +76,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Nama dan satuan wajib diisi' }, { status: 400 });
     }
 
-    if (prices[0] == undefined || prices[0] == null || prices[0] == '' || prices[0] <= 0) {
+    let price1=parseFloat(prices[0]);
+    if (price1 == undefined || price1 == null || prices[0]=="" || price1 <= 0) {
       return NextResponse.json({ message: 'Harga level 1 wajib diisi' }, { status: 400 });
     }
 

@@ -43,7 +43,7 @@ export default function CustomerPage() {
   // Keterangan, Status *
   const [customerCode, setCustomerCode] = useState('');
   const [customerName, setCustomerName] = useState('');
-  const [customerType, setCustomerType] = useState('Bengkel');
+  const [customerType, setCustomerType] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [contactPerson, setContactPerson] = useState('');
@@ -82,7 +82,7 @@ export default function CustomerPage() {
     setEditId(null);
     setCustomerCode('');
     setCustomerName('');
-    setCustomerType('Bengkel');
+    setCustomerType('');
     setPhone('');
     setEmail('');
     setContactPerson('');
@@ -336,14 +336,14 @@ export default function CustomerPage() {
                           ACTIVE
                         </button>
                       )}
-                      
-                      <button
+
+                      {/* <button
                         onClick={() => handleHardDelete(c.customer_id)}
                         className="btn btn-danger"
                         style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
                       >
                         🗑️
-                      </button>
+                      </button> */}
                       {/* <button
                         onClick={() => handleSoftDelete(c.customer_id)}
                         className="btn btn-warning"

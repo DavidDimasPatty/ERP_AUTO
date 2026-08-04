@@ -333,13 +333,13 @@ export default function ProductPage() {
                         </button>
                       )}
 
-                      <button
+                      {/* <button
                         onClick={() => handleHardDelete(u.product_id)}
                         className="btn btn-danger"
                         style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
                       >
                         🗑️
-                      </button>
+                      </button> */}
                       {/* <button
                         onClick={() => handleSoftDelete(u.product_id)}
                         className="btn btn-warning"

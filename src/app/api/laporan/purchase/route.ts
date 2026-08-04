@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { format } from 'date-fns';
 
 export async function GET(req: NextRequest) {
   try {
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
     const data = purchases.map((p) => ({
       purchase_id: p.purchase_id,
       purchase_number: p.purchase_number,
-      date: p.purchase_datetime ? new Date(p.purchase_datetime).toLocaleString('id-ID') : '-',
+      date: p.purchase_datetime ? format(new Date(p.purchase_datetime), "d-M-yyyy HH:mm:ss") : "-",
       supplier: p.supplier_name_snapshot || p.supplier?.supplier_name || '-',
       invoice_no: p.supplier_invoice_number || '-',
       total: Number(p.total_amount) || 0,
