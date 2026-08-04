@@ -11,12 +11,12 @@ export async function GET(req: NextRequest) {
 
     const where = search
       ? {
-          OR: [
-            { purchase_number: { contains: search } },
-            { supplier_name_snapshot: { contains: search } },
-            { supplier_invoice_number: { contains: search } },
-          ],
-        }
+        OR: [
+          { purchase_number: { contains: search } },
+          { supplier_name_snapshot: { contains: search } },
+          { supplier_invoice_number: { contains: search } },
+        ],
+      }
       : {};
 
     const [total, data] = await prisma.$transaction([
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    // Read session from cookie
+    // cek sesi user
     const sessionCookie = req.cookies.get('user_session');
     if (!sessionCookie || !sessionCookie.value) {
       return NextResponse.json({ message: 'Sesi tidak valid, silakan login kembali' }, { status: 401 });
@@ -77,24 +77,26 @@ export async function POST(req: NextRequest) {
       details, // Array: [ { product_id, quantity, purchase_unit_price, line_total } ]
     } = body;
 
-    // 1. Basic validation
+    //cek supplier inputan
     if (!supplier_id) {
       return NextResponse.json({ message: 'Supplier wajib dipilih' }, { status: 400 });
     }
+    //cek inputan pembelian
     if (!details || !Array.isArray(details) || details.length === 0) {
       return NextResponse.json({ message: 'Minimal harus ada 1 produk dalam transaksi' }, { status: 400 });
     }
 
-    // Check for duplicate products
+    // cek duplicate product
     const productIds = details.map((d) => d.product_id);
     const hasDuplicates = new Set(productIds).size !== productIds.length;
     if (hasDuplicates) {
       return NextResponse.json({ message: 'Tidak boleh ada produk duplikat dalam satu transaksi' }, { status: 400 });
     }
 
-    // 2. Database validation and processing inside 1 transaction
+
+    //lakukan transaction db
     const result = await prisma.$transaction(async (tx) => {
-      // Verify supplier is active
+      // cek supplier aktif
       const supplier = await tx.m_supplier.findUnique({
         where: { supplier_id: parseInt(supplier_id, 10) },
       });
@@ -102,7 +104,7 @@ export async function POST(req: NextRequest) {
         throw new Error('Supplier tidak ditemukan atau status tidak aktif');
       }
 
-      // Verify creator user is active
+      //cek user aktif
       const user = await tx.m_user.findUnique({
         where: { user_id: userSession.user_id },
       });
@@ -123,7 +125,7 @@ export async function POST(req: NextRequest) {
         const unitPrice = parseFloat(item.purchase_unit_price);
         const lineTotalInput = parseFloat(item.line_total);
 
-        // Validations per line
+        // validasi inputan produk
         if (isNaN(productId) || isNaN(qty) || isNaN(unitPrice) || isNaN(lineTotalInput)) {
           throw new Error('Format data produk tidak valid');
         }
@@ -134,6 +136,7 @@ export async function POST(req: NextRequest) {
           throw new Error('Harga beli produk tidak boleh negatif');
         }
 
+        //cek produk aktif
         const product = await tx.m_product.findUnique({
           where: { product_id: productId },
           include: { unit: true },
@@ -143,11 +146,10 @@ export async function POST(req: NextRequest) {
           throw new Error(`Produk dengan ID ${productId} tidak ditemukan atau tidak aktif`);
         }
 
-        // Expected total check
+        // rumus pembelian
         const expectedLineTotal = Math.round(qty * unitPrice * 100) / 100;
         const diff = Math.abs(lineTotalInput - expectedLineTotal);
         if (diff > 0.01) {
-          // Throw special error for frontend mismatch handling
           const errorResponse = {
             errorType: 'PRICE_MISMATCH',
             productName: product.product_name,
@@ -162,7 +164,7 @@ export async function POST(req: NextRequest) {
 
         calculatedTotal += lineTotalInput;
 
-        // Detail record
+        // insert ke detail
         detailsToInsert.push({
           line_number: lineNum++,
           product_id: product.product_id,
@@ -174,27 +176,27 @@ export async function POST(req: NextRequest) {
           line_total: lineTotalInput,
         });
 
-        // Stock update operations
+        //update produk
         stockUpdates.push({
           product_id: product.product_id,
           quantity: qty,
         });
 
-        // Cost price update
+        // update harga
         costUpdates.push({
           product_id: product.product_id,
           cost_price: unitPrice,
         });
       }
 
-      // Generate Purchase Number safely under lock
+      // generate purchase number
       const now = new Date();
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const day = String(now.getDate()).padStart(2, '0');
       const dateStr = `${year}${month}${day}`;
 
-      // Write-lock matching records for sequence count
+      // cek last purchase number untuk generate nomor baru
       const lastPurchase = await tx.$queryRawUnsafe<any[]>(
         `SELECT purchase_number FROM t_purchase WHERE purchase_number LIKE 'PB-${dateStr}-%' ORDER BY purchase_number DESC LIMIT 1 FOR UPDATE`
       );
@@ -210,7 +212,7 @@ export async function POST(req: NextRequest) {
       const seqFormatted = String(nextSeq).padStart(6, '0');
       const purchaseNumber = `PB-${dateStr}-${seqFormatted}`;
 
-      // 3. Create purchase header
+      //insert purchase
       const purchase = await tx.t_purchase.create({
         data: {
           purchase_number: purchaseNumber,
@@ -234,7 +236,7 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Update Stock
+        // uodate stok
         await tx.m_product_stock.upsert({
           where: { product_id: d.product_id },
           update: {
@@ -246,7 +248,7 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Write movement history
+        //stock movement 
         await tx.t_stock_movement.create({
           data: {
             product_id: d.product_id,
@@ -257,11 +259,12 @@ export async function POST(req: NextRequest) {
             quantity_in: d.quantity,
             quantity_out: 0,
             unit_cost: d.purchase_unit_price,
+            movement_datetime: new Date(),
             created_by_user_id: user.user_id,
           },
         });
 
-        // Update product cost_price
+        // Update harga produk
         await tx.m_product.update({
           where: { product_id: d.product_id },
           data: {
@@ -282,7 +285,7 @@ export async function POST(req: NextRequest) {
       if (errObj && errObj.errorType === 'PRICE_MISMATCH') {
         return NextResponse.json(errObj, { status: 400 });
       }
-    } catch {}
+    } catch { }
 
     return NextResponse.json({ message: error.message || 'Kesalahan server internal' }, { status: 500 });
   }

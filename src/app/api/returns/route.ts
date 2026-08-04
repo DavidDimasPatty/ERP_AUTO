@@ -11,12 +11,12 @@ export async function GET(req: NextRequest) {
 
     const where = search
       ? {
-          OR: [
-            { sales_return_number: { contains: search } },
-            { sales_number_snapshot: { contains: search } },
-            { customer_name_snapshot: { contains: search } },
-          ],
-        }
+        OR: [
+          { sales_return_number: { contains: search } },
+          { sales_number_snapshot: { contains: search } },
+          { customer_name_snapshot: { contains: search } },
+        ],
+      }
       : {};
 
     const [total, data] = await prisma.$transaction([
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    // Read session from cookie
+    // ngecek sesi dan cookie
     const sessionCookie = req.cookies.get('user_session');
     if (!sessionCookie || !sessionCookie.value) {
       return NextResponse.json({ message: 'Sesi tidak valid, silakan login kembali' }, { status: 401 });
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
       details, // Array: [ { sales_detail_id, product_id, return_quantity, return_reason } ]
     } = body;
 
-    // 1. Basic validation
+    // validasi input
     if (!sales_id) {
       return NextResponse.json({ message: 'Transaksi penjualan wajib ditentukan' }, { status: 400 });
     }
@@ -85,9 +85,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Minimal harus ada 1 produk yang diretur' }, { status: 400 });
     }
 
-    // 2. Process inside 1 database transaction
+    // buat pake transaction (locking)
     const finalReturn = await prisma.$transaction(async (tx) => {
-      // Fetch original sale
+
+      // dapetin sale dari db dari salei id
       const sale = await tx.t_sales.findUnique({
         where: { sales_id: parseInt(sales_id, 10) },
         include: { details: true },
@@ -117,6 +118,7 @@ export async function POST(req: NextRequest) {
         const returnQty = parseInt(item.return_quantity, 10);
         const itemReason = item.return_reason ? item.return_reason.trim() : null;
 
+        // ngecek id 
         if (isNaN(salesDetailId) || isNaN(productId) || isNaN(returnQty)) {
           throw new Error('Format data retur tidak valid');
         }
@@ -124,13 +126,13 @@ export async function POST(req: NextRequest) {
           throw new Error('Jumlah retur harus berupa bilangan bulat positif');
         }
 
-        // Verify product is in original sale details
+        // ngecek id di db
         const origDetail = sale.details.find((d) => d.sales_detail_id === salesDetailId);
         if (!origDetail || origDetail.product_id !== productId) {
           throw new Error('Produk yang diretur tidak cocok dengan transaksi penjualan asli');
         }
 
-        // Query sum of previous returns for this line
+        // Query sum of previous returns dari produk ini, pastikan tidak melebihi jumlah yang pernah di return dan dijual
         const prevReturnAgg = await tx.t_sales_return_detail.aggregate({
           where: {
             sales_detail_id: salesDetailId,
@@ -152,6 +154,7 @@ export async function POST(req: NextRequest) {
           );
         }
 
+        //generate detail untuk di insert ke t_sales_return_detail
         detailsToInsert.push({
           sales_detail_id: salesDetailId,
           line_number: lineNum++,
@@ -166,7 +169,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Generate Return Number safely under lock
+      // Generate Return Number  dari tanggal dan +1 transaksi sebelumnya
       const now = new Date();
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -188,7 +191,7 @@ export async function POST(req: NextRequest) {
       const seqFormatted = String(nextSeq).padStart(6, '0');
       const returnNumber = `RT-${dateStr}-${seqFormatted}`;
 
-      // Insert return header
+      // Insert return sales
       const returnHeader = await tx.t_sales_return.create({
         data: {
           sales_return_number: returnNumber,
@@ -205,7 +208,7 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Insert details, increase stock, and write movements
+      // Insert details dari insertan id return sales 
       for (const d of detailsToInsert) {
         const detailRecord = await tx.t_sales_return_detail.create({
           data: {
@@ -223,7 +226,7 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Increment stock
+        // nambahin stock dari jumlah returan barang
         await tx.m_product_stock.update({
           where: { product_id: d.product_id },
           data: {
@@ -231,13 +234,13 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Get cost price of product for movement history
+        // dapetin harga produk untuk dicatat di stock movement history
         const product = await tx.m_product.findUnique({
           where: { product_id: d.product_id },
         });
         const unitCost = product ? product.cost_price : 0;
 
-        // Write movement history
+        // insert movement history
         await tx.t_stock_movement.create({
           data: {
             product_id: d.product_id,
@@ -248,6 +251,7 @@ export async function POST(req: NextRequest) {
             quantity_in: d.return_quantity,
             quantity_out: 0,
             unit_cost: unitCost,
+            movement_datetime: new Date(),
             created_by_user_id: user.user_id,
           },
         });

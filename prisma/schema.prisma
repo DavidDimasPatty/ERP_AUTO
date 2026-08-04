@@ -221,6 +221,7 @@ model t_stock_movement {
   quantity_in         Int      @default(0)
   quantity_out        Int      @default(0)
   unit_cost           Decimal  @db.Decimal(15, 2)
+  movement_datetime   DateTime @default(now())
   created_by_user_id  Int
   created_at          DateTime @default(now())
 

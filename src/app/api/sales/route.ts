@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    // Read session from cookie
+    //cek sesi user
     const sessionCookie = req.cookies.get('user_session');
     if (!sessionCookie || !sessionCookie.value) {
       return NextResponse.json({ message: 'Sesi tidak valid, silakan login kembali' }, { status: 401 });
@@ -284,6 +284,7 @@ export async function POST(req: NextRequest) {
             quantity_in: 0,
             quantity_out: d.quantity,
             unit_cost: d.cost_price_snapshot,
+            movement_datetime: new Date(),
             created_by_user_id: cashier.user_id,
           },
         });

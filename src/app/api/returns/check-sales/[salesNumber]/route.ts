@@ -11,7 +11,7 @@ export async function GET(
     console.log(cleanNumber);
     const sale = await prisma.t_sales.findUnique({
       where: { sales_number: cleanNumber },
-      include: {
+      include: {      
         customer: true,
         details: {
           orderBy: { line_number: 'asc' },
