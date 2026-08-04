@@ -11,12 +11,12 @@ export async function GET(req: NextRequest) {
 
     const where = search
       ? {
-          OR: [
-            { sales_number: { contains: search } },
-            { customer_name_snapshot: { contains: search } },
-            { cashier_name_snapshot: { contains: search } },
-          ],
-        }
+        OR: [
+          { sales_number: { contains: search } },
+          { customer_name_snapshot: { contains: search } },
+          { cashier_name_snapshot: { contains: search } },
+        ],
+      }
       : {};
 
     const [total, data] = await prisma.$transaction([
@@ -71,44 +71,42 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const {
-      sales_type, // 'BENGKEL' or 'ECERAN'
+      sales_type, // 'BENGKEL' atau 'ECERAN'
       customer_id,
-      discount_amount, // nominal Rupiah
+      discount_amount, // diskon
       details, // Array: [ { product_id, price_level_id, quantity, unit_price } ]
       payment, // Object: { payment_method, tendered_amount, reference_number }
     } = body;
 
-    // 1. Basic Validation
+    // validasi inputan
     if (!sales_type || !['BENGKEL', 'ECERAN'].includes(sales_type)) {
       return NextResponse.json({ message: 'Jenis penjualan tidak valid (BENGKEL/ECERAN)' }, { status: 400 });
     }
-
     if (!details || !Array.isArray(details) || details.length === 0) {
       return NextResponse.json({ message: 'Minimal harus ada 1 produk dalam transaksi' }, { status: 400 });
     }
-
-    // Check for duplicate products
     const productIds = details.map((d) => d.product_id);
     const hasDuplicates = new Set(productIds).size !== productIds.length;
     if (hasDuplicates) {
       return NextResponse.json({ message: 'Tidak boleh ada produk duplikat dalam satu transaksi' }, { status: 400 });
     }
-
     if (!payment || !payment.payment_method) {
       return NextResponse.json({ message: 'Metode pembayaran wajib diisi' }, { status: 400 });
     }
     if (!['CASH', 'TRANSFER', 'QRIS'].includes(payment.payment_method)) {
       return NextResponse.json({ message: 'Metode pembayaran tidak valid' }, { status: 400 });
     }
-
     const discount = discount_amount !== undefined && discount_amount !== null ? parseFloat(discount_amount) : 0;
     if (isNaN(discount) || discount < 0) {
       return NextResponse.json({ message: 'Diskon tidak boleh bernilai negatif' }, { status: 400 });
     }
+    if (sales_type === 'BENGKEL' && !customer_id) {
+      return NextResponse.json({ message: 'Pelanggan wajib dipilih untuk penjualan BENGKEL' }, { status: 400 });
+    }
 
-    // 2. Run everything in 1 database transaction
+    // pake transaction db 
     const finalSales = await prisma.$transaction(async (tx) => {
-      // Verify cashier user
+      // cek kasir aktif
       const cashier = await tx.m_user.findUnique({
         where: { user_id: userSession.user_id },
       });
@@ -139,6 +137,7 @@ export async function POST(req: NextRequest) {
         const price = parseFloat(item.unit_price);
         const priceLevelId = item.price_level_id ? parseInt(item.price_level_id, 10) : null;
 
+        //cek produk inputan
         if (isNaN(productId) || isNaN(qty) || isNaN(price)) {
           throw new Error('Format data produk tidak valid');
         }
@@ -158,7 +157,6 @@ export async function POST(req: NextRequest) {
           throw new Error(`Produk dengan ID ${productId} tidak ditemukan atau tidak aktif`);
         }
 
-        // Check stock availability
         const currentStock = product.stock ? product.stock.stock_quantity : 0;
         if (currentStock < qty) {
           throw new Error(`Stok produk "${product.product_name}" tidak mencukupi (Sisa: ${currentStock}, Diminta: ${qty})`);
@@ -176,28 +174,27 @@ export async function POST(req: NextRequest) {
           quantity: qty,
           unit_price: price,
           line_total: lineTotal,
-          cost_price_snapshot: product.cost_price, // for movement unit_cost mapping
+          cost_price_snapshot: product.cost_price,
         });
       }
 
+      //cek diskon
       if (discount > subtotal) {
         throw new Error('Nilai diskon tidak boleh melebihi nilai subtotal');
       }
-
       const totalAmount = subtotal - discount;
 
-      // Handle payment calculation
       const tendered = parseFloat(payment.tendered_amount);
       if (isNaN(tendered)) {
         throw new Error('Jumlah bayar/tendered wajib diisi dengan angka');
       }
 
+      //validasi pembayaran
       if (payment.payment_method === 'CASH') {
         if (tendered < totalAmount) {
           throw new Error(`Jumlah bayar tunai (${tendered}) kurang dari total tagihan (${totalAmount})`);
         }
       } else {
-        // For TRANSFER/QRIS, force exact payment
         if (tendered !== totalAmount) {
           throw new Error(`Pembayaran Non-Tunai harus pas sebesar ${totalAmount}`);
         }
@@ -205,7 +202,7 @@ export async function POST(req: NextRequest) {
 
       const changeAmount = payment.payment_method === 'CASH' ? tendered - totalAmount : 0;
 
-      // Generate Sales Number safely under lock
+      //generate sales number
       const now = new Date();
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -227,7 +224,7 @@ export async function POST(req: NextRequest) {
       const seqFormatted = String(nextSeq).padStart(6, '0');
       const salesNumber = `PJ-${dateStr}-${seqFormatted}`;
 
-      // 3. Create sales header (starts as DRAFT)
+      //masukin ke sale
       const sales = await tx.t_sales.create({
         data: {
           sales_number: salesNumber,
@@ -240,12 +237,12 @@ export async function POST(req: NextRequest) {
           subtotal: subtotal,
           discount_amount: discount,
           total_amount: totalAmount,
-          payment_status: 'PAID', // cashier completed sales are paid immediately
+          payment_status: 'PAID',
           transaction_status: 'DRAFT',
         },
       });
 
-      // 4. Details insertion & safe stock update (decrement with lock)
+      // masukin ke sale detail
       let lineNum = 1;
       for (const d of detailsToInsert) {
         const detailRecord = await tx.t_sales_detail.create({
@@ -263,7 +260,7 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Atomic decrement with condition to prevent negative stocks in race conditions
+        // jagaan race condition
         const affected = await tx.$executeRawUnsafe(
           `UPDATE m_product_stock SET stock_quantity = stock_quantity - ? WHERE product_id = ? AND stock_quantity >= ?`,
           d.quantity, d.product_id, d.quantity
@@ -273,7 +270,7 @@ export async function POST(req: NextRequest) {
           throw new Error(`Stok produk "${d.product_name_snapshot}" tidak mencukupi karena ada transaksi lain bersamaan. Silakan coba lagi.`);
         }
 
-        // Write movement history
+        //insert stock movement
         await tx.t_stock_movement.create({
           data: {
             product_id: d.product_id,
@@ -290,7 +287,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // 5. Create Payment record
+      // insert payment
       await tx.t_sales_payment.create({
         data: {
           sales_id: sales.sales_id,
@@ -300,10 +297,11 @@ export async function POST(req: NextRequest) {
           change_amount: changeAmount,
           reference_number: payment.reference_number ? payment.reference_number.trim() : null,
           paid_at: now,
+          created_by_user_id: cashier.user_id,
         },
       });
 
-      // 6. Complete Transaction
+      // update status sales jadi completed
       const completedSales = await tx.t_sales.update({
         where: { sales_id: sales.sales_id },
         data: {

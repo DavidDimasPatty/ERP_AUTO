@@ -132,6 +132,7 @@ model m_user {
   sales          t_sales[]
   returns        t_sales_return[]
   stock_movements t_stock_movement[]
+  payments       t_sales_payment[]
 }
 
 model m_menu {
@@ -284,10 +285,11 @@ model t_sales_payment {
   change_amount    Decimal  @db.Decimal(15, 2)
   reference_number String?  @db.VarChar(100)
   paid_at          DateTime
+  created_by_user_id Int
   created_at       DateTime @default(now())
-  updated_at       DateTime @updatedAt
 
   sales            t_sales  @relation(fields: [sales_id], references: [sales_id], onUpdate: Cascade, onDelete: Cascade)
+  creator          m_user   @relation(fields: [created_by_user_id], references: [user_id], onUpdate: Restrict, onDelete: Restrict)
 }
 
 model t_sales_return {
