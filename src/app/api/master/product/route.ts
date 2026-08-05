@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     }
 
     let price1=parseFloat(prices[0]);
-    if (price1 == undefined || price1 == null || prices[0]=="" || price1 <= 0) {
+    if (price1 == undefined || Number.isNaN(price1) || prices[0]=="" || price1 <= 0) {
       return NextResponse.json({ message: 'Harga level 1 wajib diisi' }, { status: 400 });
     }
 
