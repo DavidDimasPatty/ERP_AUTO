@@ -69,6 +69,8 @@ export default async function DashboardLayout({
     };
   });
 
+
+
   const userDataForSidebar = {
     full_name: user.full_name,
     username: user.username,

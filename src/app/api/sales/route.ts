@@ -139,6 +139,7 @@ export async function POST(req: NextRequest) {
         const qty = parseInt(item.quantity, 10);
         const price = parseFloat(item.unit_price);
         const priceLevelId = item.price_level_id ? parseInt(item.price_level_id, 10) : null;
+        const isLooseItem = item.is_loose === true || item.is_loose === 'true';
 
         //cek produk inputan
         if (isNaN(productId) || isNaN(qty) || isNaN(price)) {
@@ -161,9 +162,9 @@ export async function POST(req: NextRequest) {
         }
 
         const currentStock = product.stock ? product.stock.stock_quantity : 0;
-        if (currentStock < qty) {
-          throw new Error(`Stok produk "${product.product_name}" tidak mencukupi (Sisa: ${currentStock}, Diminta: ${qty})`);
-        }
+        // if (!isLooseItem && currentStock < qty) {
+        //   throw new Error(`Stok produk "${product.product_name}" tidak mencukupi (Sisa: ${currentStock}, Diminta: ${qty})`);
+        // }
 
         const lineTotal = qty * price;
         subtotal += lineTotal;
@@ -178,6 +179,7 @@ export async function POST(req: NextRequest) {
           unit_price: price,
           line_total: lineTotal,
           cost_price_snapshot: product.cost_price,
+          is_loose_item: isLooseItem,
         });
       }
 
@@ -263,31 +265,39 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // jagaan race condition
-        const affected = await tx.$executeRawUnsafe(
-          `UPDATE m_product_stock SET stock_quantity = stock_quantity - ? WHERE product_id = ? AND stock_quantity >= ?`,
-          d.quantity, d.product_id, d.quantity
-        );
+        if (!d.is_loose_item) {
+          // jagaan race condition
+          // const affected = await tx.$executeRawUnsafe(
+          //   `UPDATE m_product_stock SET stock_quantity = stock_quantity - ? WHERE product_id = ? AND stock_quantity >= ?`,
+          //   d.quantity, d.product_id, d.quantity
+          // );
+          const affected = await tx.$executeRawUnsafe(
+            `UPDATE m_product_stock SET stock_quantity = stock_quantity - ? WHERE product_id = ?`,
+            d.quantity, d.product_id
+          );
 
-        if (affected === 0) {
-          throw new Error(`Stok produk "${d.product_name_snapshot}" tidak mencukupi karena ada transaksi lain bersamaan. Silakan coba lagi.`);
+          if (affected === 0) {
+            throw new Error(`Stok produk "${d.product_name_snapshot}" tidak mencukupi karena ada transaksi lain bersamaan. Silakan coba lagi.`);
+          }
         }
 
-        //insert stock movement
-        await tx.t_stock_movement.create({
-          data: {
-            product_id: d.product_id,
-            movement_type: 'SALES_OUT',
-            reference_number: salesNumber,
-            reference_id: sales.sales_id,
-            reference_detail_id: detailRecord.sales_detail_id,
-            quantity_in: 0,
-            quantity_out: d.quantity,
-            unit_cost: d.cost_price_snapshot,
-            movement_datetime: new Date(),
-            created_by_user_id: cashier.user_id,
-          },
-        });
+        //insert stock movement only for stock-managed products
+        if (!d.is_loose_item) {
+          await tx.t_stock_movement.create({
+            data: {
+              product_id: d.product_id,
+              movement_type: 'SALES_OUT',
+              reference_number: salesNumber,
+              reference_id: sales.sales_id,
+              reference_detail_id: detailRecord.sales_detail_id,
+              quantity_in: 0,
+              quantity_out: d.quantity,
+              unit_cost: d.cost_price_snapshot,
+              movement_datetime: new Date(),
+              created_by_user_id: cashier.user_id,
+            },
+          });
+        }
       }
 
       // insert payment

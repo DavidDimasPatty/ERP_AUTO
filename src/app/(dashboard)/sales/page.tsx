@@ -136,7 +136,8 @@ export default function SalesTransactionPage() {
         price_level_name: `Harga ${selectedPriceLevel}`,
         unit_price: currentProductPrice,
         quantity: 1,
-        line_total: currentProductPrice
+        line_total: currentProductPrice,
+        is_loose: false
       }]);
     }
 
@@ -149,6 +150,12 @@ export default function SalesTransactionPage() {
     const newCart = [...cart];
     newCart[index].quantity = qty;
     newCart[index].line_total = qty * newCart[index].unit_price;
+    setCart(newCart);
+  };
+
+  const toggleLooseItem = (index: number) => {
+    const newCart = [...cart];
+    newCart[index].is_loose = !newCart[index].is_loose;
     setCart(newCart);
   };
 
@@ -224,7 +231,8 @@ export default function SalesTransactionPage() {
         product_id: c.product_id,
         price_level_id: c.price_level_id,
         quantity: c.quantity,
-        unit_price: c.unit_price
+        unit_price: c.unit_price,
+        is_loose: c.is_loose || false
       }))
     };
 
@@ -263,40 +271,44 @@ export default function SalesTransactionPage() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '2rem' }}>
+    <>
+      <div className="sales-main-content" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '2rem' }}>
 
-      {/* Header & Breadcrumb */}
-      <style jsx global>{`
+        {/* Header & Breadcrumb */}
+        <style jsx global>{`
         @media print {
           @page {
-            size: A4 landscape;
-            margin: 10mm;
+            size: landscape;
+            margin: 5mm;
           }
-          html, body {
+
+          /* display:none truly removes element from layout flow (unlike visibility:hidden)
+             so the browser generates ZERO extra pages for the hidden form content. */
+          .sales-main-content {
+            display: none !important;
+          }
+
+          /* globals.css has body * { visibility: hidden } in @media print —
+             restore visibility for the receipt area */
+          .receipt-print-area,
+          .receipt-print-area * {
+            visibility: visible !important;
+          }
+
+          /* Receipt is now OUTSIDE .sales-main-content — show it in normal flow */
+          .receipt-print-area {
+          font-family: "Courier New", monospace !important;
+            display: block !important;
+            position: absolute !important;
+            left:0 !important;
+            top: 0 !important;
             width: 100% !important;
             height: auto !important;
-            margin: 0 !important;
-            padding: 0 !important;
             overflow: visible !important;
+            background: #fff !important;
+            color: #000 !important;
           }
 
-         body * {
-                visibility: hidden !important;
-            }
-
-          .receipt-print-area{
-              display:block !important;
-              position:fixed !important;
-              inset:0 !important;
-              width:100% !important;
-              height:auto !important;
-              overflow:visible !important;
-              background:#fff !important;
-          }
-         .receipt-print-area,
-          .receipt-print-area * {
-              visibility: visible !important;
-          }
           .receipt-print-area table {
             width: 100% !important;
             border-collapse: collapse !important;
@@ -318,28 +330,31 @@ export default function SalesTransactionPage() {
             color: #000 !important;
           }
         }
-      `}</style>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <h1 style={{ fontSize: '1.5rem', margin: 0 }}>Transaksi Penjualan</h1>
-          <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Penjualan &gt; Transaksi Penjualan</span>
-        </div>
-      </div>
+      `}
+        </style>
 
-      {/* Status Messages */}
-      {errorMsg && (
-        <div style={{ padding: '1rem', background: 'var(--danger-light)', color: 'var(--danger)', border: '1px solid var(--danger)', borderRadius: 'var(--radius-md)' }}>
-          {errorMsg}
-        </div>
-      )}
-      {successMsg && (
-        <div style={{ padding: '1rem', background: 'var(--success-light)', color: 'var(--success)', border: '1px solid var(--success)', borderRadius: 'var(--radius-md)' }}>
-          {successMsg}
-        </div>
-      )}
 
-      {/* Tabs */}
-      {/* <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <h1 style={{ fontSize: '1.5rem', margin: 0 }}>Transaksi Penjualan</h1>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Penjualan &gt; Transaksi Penjualan</span>
+          </div>
+        </div>
+
+        {/* Status Messages */}
+        {errorMsg && (
+          <div style={{ padding: '1rem', background: 'var(--danger-light)', color: 'var(--danger)', border: '1px solid var(--danger)', borderRadius: 'var(--radius-md)' }}>
+            {errorMsg}
+          </div>
+        )}
+        {successMsg && (
+          <div style={{ padding: '1rem', background: 'var(--success-light)', color: 'var(--success)', border: '1px solid var(--success)', borderRadius: 'var(--radius-md)' }}>
+            {successMsg}
+          </div>
+        )}
+
+        {/* Tabs */}
+        {/* <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)' }}>
         <div style={{ display: 'flex' }}>
           <button 
             style={{ 
@@ -366,292 +381,307 @@ export default function SalesTransactionPage() {
         </div>
       </div> */}
 
-      {/* Informasi Transaksi Card */}
-      <div className="card" style={{ padding: '1.5rem' }}>
-        <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem' }}>Informasi Transaksi</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
+        {/* Informasi Transaksi Card */}
+        <div className="card" style={{ padding: '1.5rem' }}>
+          <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem' }}>Informasi Transaksi</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">No. Transaksi</label>
-              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem' }}>
-                <input type="text" value="Dibuat Otomatis" readOnly style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', width: '100%', outline: 'none' }} />
-                <span style={{ color: 'var(--text-muted)' }}>🔒</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">No. Transaksi</label>
+                <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem' }}>
+                  <input type="text" value="Dibuat Otomatis" readOnly style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', width: '100%', outline: 'none' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>🔒</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Customer (Opsional)</label>
-              <SearchableSelect
-
-                value={selectedCustomer}
-                options={customers.map(c => ({ value: c.customer_id.toString(), label: `${c.customer_name} (${c.customer_code})` }))}
-                onChange={(value) => setSelectedCustomer(value)}
-                placeholder="Cari customer atau kode..."
-                className="form-select form-input"
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Catatan (Opsional)</label>
-              <input type="text" className="form-input" value={notes}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/[^a-zA-Z0-9\s.,()\-_/]/g, "");
-                  setNotes(value);
-                }}
-                placeholder="Masukkan catatan..." />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <div>
-              <label className="form-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Jenis Penjualan</label>
-              {/* <span className="badge" style={{ background: 'rgba(99,102,241,0.1)', color: 'var(--primary)', padding: '0.4rem 0.8rem' }}>{activeTab}</span> */}
-              <input onChange={
-                async (e) => {
-                  const nextTab = e.target.value;
-                  const isGeneralCustomer = !selectedCustomer || selectedCustomer === '0';
-                  if (nextTab === 'BENGKEL' && isGeneralCustomer) {
-                    await Swal.fire({
-                      title: "Peringatan",
-                      text: "Penjualan Bengkel membutuhkan customer yang terdaftar.",
-                      icon: "warning",
-                      confirmButtonText: "Close",
-                    });
-                    return;
-                  }
-                  setActiveTab(nextTab);
-                }
-              } value="BENGKEL" type='radio' className='jenis' name='jenis' checked={activeTab === "BENGKEL"} /> <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem' }}>Penjualan Bengkel</span>
-              <input onChange={(e) => setActiveTab(e.target.value)} value="ECERAN" checked={activeTab === "ECERAN"} type='radio' style={{ marginLeft: '1rem' }} name='jenis' /> <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem' }}>Penjualan Eceran</span>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      {/* Main Grid: Left (Products & List) / Right (Summary & Payment) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '7fr 3fr', gap: '1.5rem', alignItems: 'start' }}>
-
-        {/* Left Column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-
-          {/* Pilih Produk Card */}
-          <div className="card" style={{ padding: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Pilih Produk</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Customer (Opsional)</label>
                 <SearchableSelect
-                  value={selectedProduct?.product_id?.toString() || ''}
-                  options={products.map(p => ({ value: p.product_id.toString(), label: `${p.product_code} - ${p.product_name}` }))}
-                  onChange={(value) => handleProductSelect(value)}
-                  placeholder="-- Pilih Produk --"
+
+                  value={selectedCustomer}
+                  options={customers.map(c => ({ value: c.customer_id.toString(), label: `${c.customer_name} (${c.customer_code})` }))}
+                  onChange={(value) => setSelectedCustomer(value)}
+                  placeholder="Cari customer atau kode..."
                   className="form-select form-input"
                 />
               </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem' }}>Level Harga</label>
-                <select
-                  value={selectedPriceLevel}
-                  onChange={(e) => setSelectedPriceLevel(e.target.value)}
-                  className="form-select form-input"
-                  style={{ width: '100%', padding: '0.65rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
-                >
-                  {activeTab === 'BENGKEL' ? (
-                    [3, 4, 5].map((lvl) => (
-                      <option key={lvl} value={lvl.toString()}>{`Harga ${lvl}`}</option>
-                    ))
-
-                  ) : (
-                    [1, 2, 3, 4, 5].map((lvl) => (
-                      <option key={lvl} value={lvl.toString()}>{`Harga ${lvl}`}</option>
-                    ))
-                  )}
-
-                </select>
-              </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem' }}>Harga</label>
-                <input type="text" className="form-input" value={selectedProduct ? currentProductPrice.toLocaleString('id-ID') : '0'} readOnly style={{ background: 'var(--bg-primary)', padding: '0.5rem' }} />
-              </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem' }}>Satuan</label>
-                <input type="text" className="form-input" value={selectedProduct?.unitName || '-'} readOnly style={{ background: 'var(--bg-primary)', padding: '0.5rem' }} />
-              </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem' }}>Stok</label>
-                <div style={{ padding: '0.5rem', color: selectedProduct && selectedProduct.currentStock > 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
-                  {selectedProduct?.currentStock || 0}
-                </div>
-              </div>
-              <button className="btn btn-primary" style={{ padding: '0.5rem 1rem' }} onClick={handleAddToCart} disabled={!selectedProduct || selectedProduct.currentStock <= 0}>
-                + Tambah
-              </button>
-            </div>
-          </div>
-
-          {/* Daftar Produk Card */}
-          <div className="card" style={{ padding: '1.5rem', paddingBottom: 0 }}>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Keranjang Belanja</h3>
-            <div className="table-container" style={{ border: 'none', borderRadius: 0, borderBottom: '1px solid var(--border-color)' }}>
-              <table className="table" style={{ borderBottom: 'none' }}>
-                <thead>
-                  <tr style={{ background: 'transparent' }}>
-                    <th style={{ background: 'transparent', padding: '0.75rem 0.5rem' }}>No</th>
-                    <th style={{ background: 'transparent', padding: '0.75rem 0.5rem' }}>Produk</th>
-                    <th style={{ background: 'transparent', padding: '0.75rem 0.5rem' }}>Level</th>
-                    <th style={{ background: 'transparent', padding: '0.75rem 0.5rem', textAlign: 'right' }}>Harga</th>
-                    <th style={{ background: 'transparent', padding: '0.75rem 0.5rem', textAlign: 'center' }}>Jumlah</th>
-                    <th style={{ background: 'transparent', padding: '0.75rem 0.5rem', textAlign: 'right' }}>Total</th>
-                    <th style={{ background: 'transparent', padding: '0.75rem 0.5rem' }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cart.length === 0 && (
-                    <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Keranjang masih kosong</td>
-                    </tr>
-                  )}
-                  {cart.map((item, index) => (
-                    <tr key={index}>
-                      <td style={{ padding: '0.75rem 0.5rem' }}>{index + 1}</td>
-                      <td style={{ padding: '0.75rem 0.5rem' }}>
-                        <div style={{ fontWeight: 600 }}>{item.product_code}</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{item.product_name}</div>
-                      </td>
-                      <td style={{ padding: '0.75rem 0.5rem' }}><span className="badge" style={{ background: 'rgba(99,102,241,0.1)', color: 'var(--primary)' }}>{item.price_level_name}</span></td>
-                      <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>{item.unit_price.toLocaleString('id-ID')}</td>
-                      <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
-                        <input type="number" className="form-input" value={item.quantity} onChange={(e) => updateCartQty(index, e.target.value)} style={{ width: '60px', padding: '0.4rem', textAlign: 'center' }} min="1" />
-                      </td>
-                      <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 600 }}>{item.line_total.toLocaleString('id-ID')}</td>
-                      <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>
-                        <button className="btn btn-danger" style={{ padding: '0.25rem 0.5rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.2)' }} onClick={() => removeCartItem(index)}>🗑️</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem 0' }}>
-              <button className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }} onClick={() => setCart([])}>Hapus Semua</button>
-              <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
-                <div>Total Item: <strong>{cart.reduce((a, b) => a + b.quantity, 0)}</strong></div>
-                <div style={{ fontSize: '1.2rem' }}>Subtotal: <strong>Rp {subtotal.toLocaleString('id-ID')}</strong></div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Catatan (Opsional)</label>
+                <input type="text" className="form-input" value={notes}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^a-zA-Z0-9\s.,()\-_/]/g, "");
+                    setNotes(value);
+                  }}
+                  placeholder="Masukkan catatan..." />
               </div>
             </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div>
+                <label className="form-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Jenis Penjualan</label>
+                {/* <span className="badge" style={{ background: 'rgba(99,102,241,0.1)', color: 'var(--primary)', padding: '0.4rem 0.8rem' }}>{activeTab}</span> */}
+                <input onChange={
+                  async (e) => {
+                    const nextTab = e.target.value;
+                    const isGeneralCustomer = !selectedCustomer || selectedCustomer === '0';
+                    if (nextTab === 'BENGKEL' && isGeneralCustomer) {
+                      await Swal.fire({
+                        title: "Peringatan",
+                        text: "Penjualan Bengkel membutuhkan customer yang terdaftar.",
+                        icon: "warning",
+                        confirmButtonText: "Close",
+                      });
+                      return;
+                    }
+                    setActiveTab(nextTab);
+                  }
+                } value="BENGKEL" type='radio' className='jenis' name='jenis' checked={activeTab === "BENGKEL"} /> <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem' }}>Penjualan Bengkel</span>
+                <input onChange={(e) => setActiveTab(e.target.value)} value="ECERAN" checked={activeTab === "ECERAN"} type='radio' style={{ marginLeft: '1rem' }} name='jenis' /> <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem' }}>Penjualan Eceran</span>
+              </div>
+            </div>
+
           </div>
         </div>
 
-        {/* Right Column (Payment Sidebar) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        {/* Main Grid: Left (Products & List) / Right (Summary & Payment) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '7fr 3fr', gap: '1.5rem', alignItems: 'start' }}>
 
-          <div className="card" style={{ padding: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem' }}>Ringkasan Pembayaran</h3>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>Subtotal</span>
-              <span style={{ fontWeight: 600 }}>Rp {subtotal.toLocaleString('id-ID')}</span>
+          {/* Left Column */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+            {/* Pilih Produk Card */}
+            <div className="card" style={{ padding: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Pilih Produk</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <SearchableSelect
+                    value={selectedProduct?.product_id?.toString() || ''}
+                    options={products.map(p => ({ value: p.product_id.toString(), label: `${p.product_code} - ${p.product_name}` }))}
+                    onChange={(value) => handleProductSelect(value)}
+                    placeholder="-- Pilih Produk --"
+                    className="form-select form-input"
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem' }}>Level Harga</label>
+                  <select
+                    value={selectedPriceLevel}
+                    onChange={(e) => setSelectedPriceLevel(e.target.value)}
+                    className="form-select form-input"
+                    style={{ width: '100%', padding: '0.65rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+                  >
+                    {activeTab === 'BENGKEL' ? (
+                      [3, 4, 5].map((lvl) => (
+                        <option key={lvl} value={lvl.toString()}>{`Harga ${lvl}`}</option>
+                      ))
+
+                    ) : (
+                      [1, 2, 3, 4, 5].map((lvl) => (
+                        <option key={lvl} value={lvl.toString()}>{`Harga ${lvl}`}</option>
+                      ))
+                    )}
+
+                  </select>
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem' }}>Harga</label>
+                  <input type="text" className="form-input" value={selectedProduct ? currentProductPrice.toLocaleString('id-ID') : '0'} readOnly style={{ background: 'var(--bg-primary)', padding: '0.5rem' }} />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem' }}>Satuan</label>
+                  <input type="text" className="form-input" value={selectedProduct?.unitName || '-'} readOnly style={{ background: 'var(--bg-primary)', padding: '0.5rem' }} />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem' }}>Stok</label>
+                  <div style={{ padding: '0.5rem', color: selectedProduct && selectedProduct.currentStock > 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
+                    {selectedProduct?.currentStock || 0}
+                  </div>
+                </div>
+                {/* <button className="btn btn-primary" style={{ padding: '0.5rem 1rem' }} onClick={handleAddToCart} disabled={!selectedProduct || selectedProduct.currentStock <= 0}>
+                + Tambah
+              </button> */}
+                <button className="btn btn-primary" style={{ padding: '0.5rem 1rem' }} onClick={handleAddToCart} disabled={!selectedProduct}>
+                  + Tambah
+                </button>
+              </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>Diskon (Rp)</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+
+            {/* Daftar Produk Card */}
+            <div className="card" style={{ padding: '1.5rem', paddingBottom: 0 }}>
+              <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Keranjang Belanja</h3>
+              <div className="table-container" style={{ border: 'none', borderRadius: 0, borderBottom: '1px solid var(--border-color)' }}>
+                <table className="table" style={{ borderBottom: 'none' }}>
+                  <thead>
+                    <tr style={{ background: 'transparent' }}>
+                      <th style={{ background: 'transparent', padding: '0.75rem 0.5rem' }}>No</th>
+                      <th style={{ background: 'transparent', padding: '0.75rem 0.5rem' }}>Produk</th>
+                      <th style={{ background: 'transparent', padding: '0.75rem 0.5rem' }}>Level</th>
+                      <th style={{ background: 'transparent', padding: '0.75rem 0.5rem', textAlign: 'right' }}>Harga</th>
+                      <th style={{ background: 'transparent', padding: '0.75rem 0.5rem', textAlign: 'center' }}>Jumlah</th>
+                      <th style={{ background: 'transparent', padding: '0.75rem 0.5rem', textAlign: 'right' }}>Total</th>
+                      <th style={{ background: 'transparent', padding: '0.75rem 0.5rem' }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cart.length === 0 && (
+                      <tr>
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Keranjang masih kosong</td>
+                      </tr>
+                    )}
+                    {cart.map((item, index) => (
+                      <tr key={index}>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>{index + 1}</td>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>
+                          <div style={{ fontWeight: 600 }}>{item.product_code}</div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{item.product_name}</div>
+                        </td>
+                        <td style={{ padding: '0.75rem 0.5rem' }}><span className="badge" style={{ background: 'rgba(99,102,241,0.1)', color: 'var(--primary)' }}>{item.price_level_name}</span></td>
+                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>{item.unit_price.toLocaleString('id-ID')}</td>
+                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
+                          <input type="number" className="form-input" value={item.quantity} onChange={(e) => updateCartQty(index, e.target.value)} style={{ width: '60px', padding: '0.4rem', textAlign: 'center' }} min="1" />
+                        </td>
+                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 600 }}>{item.line_total.toLocaleString('id-ID')}</td>
+                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>
+                          <button
+                            className={`btn ${item.is_loose ? 'btn-success' : 'btn-secondary'}`}
+                            style={{ padding: '0.25rem 0.5rem', marginRight: '0.35rem' }}
+                            onClick={() => toggleLooseItem(index)}
+                          >
+                            {item.is_loose ? 'Lepas' : 'Stok'}
+                          </button>
+                          <button className="btn btn-danger" style={{ padding: '0.25rem 0.5rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.2)' }} onClick={() => removeCartItem(index)}>🗑️</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem 0' }}>
+                <button className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }} onClick={() => setCart([])}>Hapus Semua</button>
+                <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
+                  <div>Total Item: <strong>{cart.reduce((a, b) => a + b.quantity, 0)}</strong></div>
+                  <div style={{ fontSize: '1.2rem' }}>Subtotal: <strong>Rp {subtotal.toLocaleString('id-ID')}</strong></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column (Payment Sidebar) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+            <div className="card" style={{ padding: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem' }}>Ringkasan Pembayaran</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Subtotal</span>
+                <span style={{ fontWeight: 600 }}>Rp {subtotal.toLocaleString('id-ID')}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Diskon (Rp)</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input
+                    // type="number"
+                    //   className="form-input"
+                    //   value={discountAmount || ''}
+                    //   onChange={(e) => setDiscountAmount(parseInt(e.target.value) || 0)}
+                    type="text"
+                    className="form-input"
+                    inputMode="numeric"
+                    value={
+                      discountAmount == 0
+                        ? 0
+                        : Number(discountAmount).toLocaleString("id-ID")
+                    }
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, "");
+                      setDiscountAmount(Number(raw || 0));
+                    }}
+                    style={{ width: '200px', padding: '0.4rem', textAlign: 'right' }} min="0" />
+                </div>
+              </div>
+              <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>Total</span>
+                <span style={{ fontWeight: 800, fontSize: '1.5rem', color: 'var(--primary)' }}>Rp {totalAmount.toLocaleString('id-ID')}</span>
+              </div>
+            </div>
+
+            <div className="card" style={{ padding: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem' }}>Pembayaran</h3>
+              <div className="form-group">
+                <label className="form-label">Metode Pembayaran</label>
+                <SearchableSelect
+                  value={paymentMethod}
+                  options={[
+                    { value: 'CASH', label: 'Tunai (CASH)' },
+                    { value: 'TRANSFER', label: 'Transfer Bank' },
+                    { value: 'QRIS', label: 'QRIS' },
+                  ]}
+                  onChange={(value) => setPaymentMethod(value)}
+                  placeholder="Pilih metode pembayaran..."
+                  className="form-select form-input"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Uang Diterima (Rp)</label>
                 <input
-                  // type="number"
-                  //   className="form-input"
-                  //   value={discountAmount || ''}
-                  //   onChange={(e) => setDiscountAmount(parseInt(e.target.value) || 0)}
                   type="text"
                   className="form-input"
+                  // value={tenderedAmount}
+                  // onChange={(e) => setTenderedAmount(e.target.value)}
+                  // value={Number(tenderedAmount || 0).toLocaleString('id-ID')}
+                  // onChange={(e) => {
+                  //   const value = e.target.value.replace(/\./g, '');
+                  //   setTenderedAmount(value);
+                  // }}
                   inputMode="numeric"
                   value={
-                    discountAmount == 0
-                      ? 0
-                      : Number(discountAmount).toLocaleString("id-ID")
+                    tenderedAmount === ""
+                      ? ""
+                      : Number(tenderedAmount).toLocaleString("id-ID")
                   }
                   onChange={(e) => {
                     const raw = e.target.value.replace(/\D/g, "");
-                    setDiscountAmount(Number(raw || 0));
+                    setTenderedAmount(raw);
                   }}
-                  style={{ width: '200px', padding: '0.4rem', textAlign: 'right' }} min="0" />
+                  style={{ fontSize: '1.2rem', fontWeight: 600 }}
+                />
+              </div>
+              {paymentMethod === 'CASH' && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', marginBottom: '1.5rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Kembalian</span>
+                  <span style={{ fontWeight: 700, fontSize: '1.2rem', color: 'var(--success)' }}>
+                    Rp {returnAmount > 0 ? returnAmount.toLocaleString('id-ID') : '0'}
+                  </span>
+                </div>
+              )}
+
+              <div style={{ justifyContent: 'space-between', display: 'flex', flexDirection: 'row', gap: '0.75rem', marginTop: '1rem' }}>
+                <button className="btn btn-primary" style={{ padding: '1rem', fontSize: '1rem' }} onClick={() => handleSubmit(true)} disabled={isLoading}>
+                  {isLoading ? 'Menyimpan...' : '🖨️ Simpan  dan Cetak'}
+                </button>
+                <button className="btn btn-primary" style={{ padding: '1rem', fontSize: '1rem' }} onClick={() => handleSubmit(false)} disabled={isLoading}>
+                  {isLoading ? 'Menyimpan...' : '💾 Simpan '}
+                </button>
               </div>
             </div>
-            <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>Total</span>
-              <span style={{ fontWeight: 800, fontSize: '1.5rem', color: 'var(--primary)' }}>Rp {totalAmount.toLocaleString('id-ID')}</span>
-            </div>
-          </div>
 
-          <div className="card" style={{ padding: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem' }}>Pembayaran</h3>
-            <div className="form-group">
-              <label className="form-label">Metode Pembayaran</label>
-              <SearchableSelect
-                value={paymentMethod}
-                options={[
-                  { value: 'CASH', label: 'Tunai (CASH)' },
-                  { value: 'TRANSFER', label: 'Transfer Bank' },
-                  { value: 'QRIS', label: 'QRIS' },
-                ]}
-                onChange={(value) => setPaymentMethod(value)}
-                placeholder="Pilih metode pembayaran..."
-                className="form-select form-input"
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Uang Diterima (Rp)</label>
-              <input
-                type="text"
-                className="form-input"
-                // value={tenderedAmount}
-                // onChange={(e) => setTenderedAmount(e.target.value)}
-                // value={Number(tenderedAmount || 0).toLocaleString('id-ID')}
-                // onChange={(e) => {
-                //   const value = e.target.value.replace(/\./g, '');
-                //   setTenderedAmount(value);
-                // }}
-                inputMode="numeric"
-                value={
-                  tenderedAmount === ""
-                    ? ""
-                    : Number(tenderedAmount).toLocaleString("id-ID")
-                }
-                onChange={(e) => {
-                  const raw = e.target.value.replace(/\D/g, "");
-                  setTenderedAmount(raw);
-                }}
-                style={{ fontSize: '1.2rem', fontWeight: 600 }}
-              />
-            </div>
-            {paymentMethod === 'CASH' && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', marginBottom: '1.5rem' }}>
-                <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Kembalian</span>
-                <span style={{ fontWeight: 700, fontSize: '1.2rem', color: 'var(--success)' }}>
-                  Rp {returnAmount > 0 ? returnAmount.toLocaleString('id-ID') : '0'}
-                </span>
-              </div>
-            )}
-
-            <div style={{ justifyContent: 'space-between', display: 'flex', flexDirection: 'row', gap: '0.75rem', marginTop: '1rem' }}>
-              <button className="btn btn-primary" style={{ padding: '1rem', fontSize: '1rem' }} onClick={() => handleSubmit(true)} disabled={isLoading}>
-                {isLoading ? 'Menyimpan...' : '🖨️ Simpan  dan Cetak'}
-              </button>
-              <button className="btn btn-primary" style={{ padding: '1rem', fontSize: '1rem' }} onClick={() => handleSubmit(false)} disabled={isLoading}>
-                {isLoading ? 'Menyimpan...' : '💾 Simpan '}
-              </button>
-            </div>
           </div>
 
         </div>
 
-      </div>
+      </div>{/* closes .sales-main-content */}
 
       {receiptData && (
-        <div className="receipt-print-area" style={{ position: 'absolute', display: isPrintReady ? "block" : "none", width: '1px', height: '1px', overflow: 'hidden' }}>
+        <div
+          className="receipt-print-area"
+          style={{ display: isPrintReady ? 'block' : 'none', position: 'absolute', left: '-9999px', top: 0, width: '1px', height: '1px', overflow: 'hidden' }}
+        >
           <div style={{ width: '100%', padding: '1rem', background: '#fff', color: '#000' }}>
             <h2 style={{ margin: '0 0 0.5rem' }}>STRUK PENJUALAN</h2>
             <p style={{ margin: '0.25rem 0' }}>No. Transaksi: <strong>{receiptData.sales_number}</strong></p>
@@ -708,6 +738,6 @@ export default function SalesTransactionPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

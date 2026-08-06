@@ -533,26 +533,32 @@ h6 {
     margin: 10mm;
   }
 
+  /* Constrain the document so hidden body content (visibility:hidden)
+     doesn't create blank extra print pages. */
   html,
   body {
     width: 100%;
     margin: 0;
     padding: 0;
     background: #fff;
+    /* Keep overflow:visible here so multi-page reports (laporan) can flow.
+       Per-page overrides (e.g. sales receipt) add overflow:hidden in their
+       own inline <style> to collapse to 1 page. */
     overflow: visible;
   }
 
-  /* Sembunyikan semua */
+  /* Only used by pages that opt-in to the visibility:hidden strategy.
+     Pages using display:none strategy (laporan) are unaffected. */
   body * {
     visibility: hidden;
   }
 
-  /* Tampilkan hanya area print */
   .print-preview,
   .print-preview * {
     visibility: visible;
   }
 
+  /* position:absolute → appears only on page 1 (not repeated like fixed) */
   .print-preview {
     position: absolute;
     left: 0;

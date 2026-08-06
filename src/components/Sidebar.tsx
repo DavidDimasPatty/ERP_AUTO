@@ -109,7 +109,7 @@ export default function Sidebar({ user, menus }: SidebarProps) {
                     className={`nav-link ${isLinkActive(parent.route_path) ? 'active' : ''}`}
                   >
                     <span
-                      style={{ fontSize: '0.8rem' }}  
+                      style={{ fontSize: '0.8rem' }}
                     >{parent.menu_name}</span>
                   </Link>
                 </li>

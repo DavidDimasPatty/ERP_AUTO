@@ -4,6 +4,61 @@ import { prisma } from '@/lib/prisma';
 
 export const revalidate = 0; // Disable cache for live stats
 
+function SalesChartCard({
+  title,
+  subtitle,
+  data,
+  maxValue,
+}: {
+  title: string;
+  subtitle: string;
+  data: Array<{ label: string; value: number }>;
+  maxValue: number;
+}) {
+  const formatRupiah = (num: number) =>
+    new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      maximumFractionDigits: 0,
+    }).format(num);
+
+  return (
+    <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div>
+        <h3 style={{ fontSize: '1.2rem' }}>{title}</h3>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>{subtitle}</p>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '0.75rem', minHeight: '220px' }}>
+        {data.map((item) => {
+          const height = Math.max(8, (item.value / maxValue) * 100);
+          return (
+            <div key={item.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.45rem' }}>
+              <div style={{ height: '140px', width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                <div
+                  style={{
+                    width: '100%',
+                    maxWidth: '42px',
+                    height: `${height}%`,
+                    minHeight: item.value > 0 ? '8px' : '4px',
+                    borderRadius: '999px 999px 6px 6px',
+                    background: 'linear-gradient(180deg, var(--primary) 0%, var(--success) 100%)',
+                    boxShadow: '0 8px 16px rgba(37, 99, 235, 0.16)',
+                  }}
+                />
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700 }}>{item.label}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{formatRupiah(item.value)}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default async function DashboardPage() {
   // 1. Fetch Stats
   const activeProducts = await prisma.m_product.findMany({
@@ -33,6 +88,70 @@ export default async function DashboardPage() {
 
   const dailyRevenue = salesToday.reduce((sum, s) => sum + Number(s.total_amount), 0);
   const dailySalesCount = salesToday.length;
+
+  const salesChartRangeStart = new Date();
+  salesChartRangeStart.setMonth(salesChartRangeStart.getMonth() - 5);
+  salesChartRangeStart.setDate(1);
+  salesChartRangeStart.setHours(0, 0, 0, 0);
+
+  const salesChartData = await prisma.t_sales.findMany({
+    where: {
+      transaction_status: 'COMPLETED',
+      sales_datetime: {
+        gte: salesChartRangeStart,
+      },
+    },
+    select: {
+      sales_datetime: true,
+      total_amount: true,
+    },
+    orderBy: { sales_datetime: 'asc' },
+  });
+
+  const weeklySales = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date();
+    day.setDate(day.getDate() - (6 - index));
+    day.setHours(0, 0, 0, 0);
+
+    const nextDay = new Date(day);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    const value = salesChartData.reduce((sum, sale) => {
+      const saleDate = new Date(sale.sales_datetime);
+      if (saleDate >= day && saleDate < nextDay) {
+        return sum + Number(sale.total_amount);
+      }
+      return sum;
+    }, 0);
+
+    return {
+      label: day.toLocaleDateString('id-ID', { weekday: 'short' }),
+      value,
+    };
+  });
+
+  const monthlySales = Array.from({ length: 6 }, (_, index) => {
+    const monthDate = new Date();
+    monthDate.setMonth(monthDate.getMonth() - (5 - index), 1);
+    monthDate.setHours(0, 0, 0, 0);
+
+    const nextMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1);
+    const value = salesChartData.reduce((sum, sale) => {
+      const saleDate = new Date(sale.sales_datetime);
+      if (saleDate >= monthDate && saleDate < nextMonth) {
+        return sum + Number(sale.total_amount);
+      }
+      return sum;
+    }, 0);
+
+    return {
+      label: monthDate.toLocaleDateString('id-ID', { month: 'short', year: '2-digit' }),
+      value,
+    };
+  });
+
+  const weeklyMaxValue = Math.max(...weeklySales.map((item) => item.value), 1);
+  const monthlyMaxValue = Math.max(...monthlySales.map((item) => item.value), 1);
 
   // Recent Sales
   const recentSales = await prisma.t_sales.findMany({
@@ -148,7 +267,7 @@ export default async function DashboardPage() {
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'between',
+                      justifyContent: 'space-between',
                       padding: '0.5rem 0.75rem',
                       background: 'var(--bg-tertiary)',
                       borderRadius: 'var(--radius-md)',
@@ -197,6 +316,26 @@ export default async function DashboardPage() {
             </Link>
           </div>
         </div>
+      </div>
+
+      {/* Sales Charts */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+        gap: '2rem',
+      }}>
+        <SalesChartCard
+          title="Penjualan Mingguan"
+          subtitle="Ringkasan omzet 7 hari terakhir"
+          data={weeklySales}
+          maxValue={weeklyMaxValue}
+        />
+        <SalesChartCard
+          title="Penjualan Bulanan"
+          subtitle="Ringkasan omzet 6 bulan terakhir"
+          data={monthlySales}
+          maxValue={monthlyMaxValue}
+        />
       </div>
 
       {/* Recent Activity Grid */}
