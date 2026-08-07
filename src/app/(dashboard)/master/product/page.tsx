@@ -399,27 +399,27 @@ export default function ProductPage() {
                   </div>
                 )}
 
+                {editId && (
+                  <div className="form-group">
+                    <label className="form-label">Kode Produk <span style={{ color: 'red' }}>*</span></label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Isi kosong untuk generate otomatis"
+                      value={productCode}
+                      onChange={(e) => setProductCode(e.target.value)}
+                      required={!!editId}
+                      readOnly={!!editId}
+                    />
+                  </div>
+                )}
+
                 {/* 2 Column Main Layout */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
 
                   {/* Left Column */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
-                    {editId && (
-                      <div className="form-group">
-                        <label className="form-label">Kode Produk <span style={{ color: 'red' }}>*</span></label>
-                        <input
-                          type="text"
-                          className="form-input"
-                          placeholder="Isi kosong untuk generate otomatis"
-                          value={productCode}
-                          onChange={(e) => setProductCode(e.target.value)}
-                          required={!!editId}
-                          readOnly={!!editId}
-                        />
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Maksimal 30 karakter</span>
-                      </div>
-                    )}
                     <div className="form-group">
                       <label className="form-label">Nama Produk <span style={{ color: 'red' }}>*</span></label>
                       <input

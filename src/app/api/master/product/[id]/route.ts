@@ -49,11 +49,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const finalCostPrice = cost_price !== undefined && cost_price !== null ? parseFloat(cost_price) : 0;
     const finalMinStock = minimum_stock !== undefined && minimum_stock !== null ? parseInt(minimum_stock, 10) : 0;
-    let price1 = parseFloat(prices[0]);
-    if (price1 == undefined || Number.isNaN(price1) || prices[0] == "" || price1 <= 0) {
+    let price1 = parseFloat(prices[1]);
+    if (price1 == undefined || Number.isNaN(price1) || prices[1] == "" || price1 <= 0) {
       return NextResponse.json({ message: 'Harga level 1 wajib diisi' }, { status: 400 });
     }
-
+    if (finalMinStock <= 0) {
+      return NextResponse.json({ message: 'Mohon isi minimal stock/ minimal stock <= 0' }, { status: 400 });
+    }
     const updatedProduct = await prisma.$transaction(async (tx) => {
       // 1. Update product main data
       const prod = await tx.m_product.update({

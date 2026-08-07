@@ -41,12 +41,12 @@ export default function SupplierPage() {
   const [supplierCode, setSupplierCode] = useState('');
   const [supplierName, setSupplierName] = useState('');
   const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
+  // const [email, setEmail] = useState('');
   const [contactPerson, setContactPerson] = useState('');
   const [cityName, setCityName] = useState('');
   const [address, setAddress] = useState('');
   const [paymentTermDays, setPaymentTermDays] = useState('30');
-  const [oldCode, setOldCode] = useState('');
+  // const [oldCode, setOldCode] = useState('');
   const [notes, setNotes] = useState('');
   const [isActive, setIsActive] = useState(true);
 
@@ -78,12 +78,12 @@ export default function SupplierPage() {
     setSupplierCode('');
     setSupplierName('');
     setPhone('');
-    setEmail('');
+    // setEmail('');
     setContactPerson('');
     setCityName('');
     setAddress('');
     setPaymentTermDays('30');
-    setOldCode('');
+    // setOldCode('');
     setNotes('');
     setIsActive(true);
     setFormError('');
@@ -95,12 +95,12 @@ export default function SupplierPage() {
     setSupplierCode(item.supplier_code || '');
     setSupplierName(item.supplier_name || '');
     setPhone(item.phone || '');
-    setEmail(item.email || '');
+    // setEmail(item.email || '');
     setContactPerson(item.contact_person || '');
     setCityName(item.city_name || '');
     setAddress(item.address || '');
     setPaymentTermDays(item.payment_term_days?.toString() || '30');
-    setOldCode(item.old_code || '');
+    // setOldCode(item.old_code || '');
     setNotes(item.notes || '');
     setIsActive(item.is_active);
     setFormError('');
@@ -136,12 +136,12 @@ export default function SupplierPage() {
           supplier_code: supplierCode,
           supplier_name: supplierName,
           phone,
-          email,
+          // email,
           contact_person: contactPerson,
           city_name: cityName,
           address,
           payment_term_days: parseInt(paymentTermDays) || 0,
-          old_code: oldCode,
+          // old_code: oldCode,
           notes,
           is_active: isActive,
         }),
@@ -329,7 +329,7 @@ export default function SupplierPage() {
                           ACTIVE
                         </button>
                       )}
-                      
+
                       {/* <button
                         onClick={() => handleHardDelete(b.supplier_id)}
                         className="btn btn-danger"
@@ -401,50 +401,26 @@ export default function SupplierPage() {
                   </div>
                 )}
 
+                {editId && (
+                  <div className="form-group">
+                    <label className="form-label">Kode Supplier <span style={{ color: 'red' }}>*</span></label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Isi kosong untuk generate otomatis"
+                      value={supplierCode}
+                      onChange={(e) => setSupplierCode(e.target.value)}
+                      required={!!editId}
+                      readOnly={!!editId}
+                    />
+                  </div>
+                )}
                 {/* 2 Column Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   {/* Left Column */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
-                    {editId && (
-                      <div className="form-group">
-                        <label className="form-label">Kode Supplier <span style={{ color: 'red' }}>*</span></label>
-                        <input
-                          type="text"
-                          className="form-input"
-                          placeholder="Isi kosong untuk generate otomatis"
-                          value={supplierCode}
-                          onChange={(e) => setSupplierCode(e.target.value)}
-                          required={!!editId}
-                          readOnly={!!editId}
-                        />
-                      </div>
-                    )}
 
-                    <div className="form-group">
-                      <label className="form-label">No. Telepon</label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        placeholder="021555123"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Contact Person</label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        placeholder="Budi Santoso"
-                        value={contactPerson}
-                        onChange={(e) => setContactPerson(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Right Column */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <div className="form-group">
                       <label className="form-label">Nama Supplier <span style={{ color: 'red' }}>*</span></label>
                       <input
@@ -456,17 +432,18 @@ export default function SupplierPage() {
                         required
                       />
                     </div>
+
                     <div className="form-group">
-                      <label className="form-label">Email</label>
+                      <label className="form-label">Contact Person</label>
                       <input
-                        type="email"
+                        type="text"
                         className="form-input"
-                        placeholder="supplier@email.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Budi Santoso"
+                        value={contactPerson}
+                        onChange={(e) => setContactPerson(e.target.value)}
                       />
                     </div>
-                    <div className="form-group">
+                    {/* <div className="form-group">
                       <label className="form-label">Kota</label>
                       <input
                         type="text"
@@ -475,8 +452,54 @@ export default function SupplierPage() {
                         value={cityName}
                         onChange={(e) => setCityName(e.target.value)}
                       />
-                    </div>
+                    </div> */}
                   </div>
+
+                  {/* Right Column */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div className="form-group">
+                      <label className="form-label">No. Telepon</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="021555123"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                      />
+                    </div>
+                    {/* <div className="form-group">
+                      <label className="form-label">Email</label>
+                      <input
+                        type="email"
+                        className="form-input"
+                        placeholder="supplier@email.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                      />
+                    </div> */}
+                    <div className="form-group">
+                      <label className="form-label">Termin Pembayaran (Hari)</label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        placeholder="30"
+                        value={paymentTermDays}
+                        onChange={(e) => setPaymentTermDays(e.target.value)}
+                      />
+                    </div>
+
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Kota</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Jakarta"
+                    value={cityName}
+                    onChange={(e) => setCityName(e.target.value)}
+                  />
                 </div>
 
                 {/* Full Width Alamat */}
@@ -493,7 +516,7 @@ export default function SupplierPage() {
                 </div>
 
                 {/* 2 Column Bottom Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                {/* <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div className="form-group">
                     <label className="form-label">Termin Pembayaran (Hari)</label>
                     <input
@@ -514,7 +537,7 @@ export default function SupplierPage() {
                       onChange={(e) => setOldCode(e.target.value)}
                     />
                   </div>
-                </div>
+                </div> */}
 
                 {/* Full Width Catatan */}
                 <div className="form-group">

@@ -43,15 +43,15 @@ export default function CustomerPage() {
   // Keterangan, Status *
   const [customerCode, setCustomerCode] = useState('');
   const [customerName, setCustomerName] = useState('');
-  const [customerType, setCustomerType] = useState('');
+  // const [customerType, setCustomerType] = useState('');
   const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
+  // const [email, setEmail] = useState('');
   const [contactPerson, setContactPerson] = useState('');
   const [cityName, setCityName] = useState('');
   const [address, setAddress] = useState('');
-  const [paymentTermDays, setPaymentTermDays] = useState('30');
-  const [creditLimit, setCreditLimit] = useState('5000000');
-  const [isCreditBlocked, setIsCreditBlocked] = useState('Tidak');
+  // const [paymentTermDays, setPaymentTermDays] = useState('30');
+  // const [creditLimit, setCreditLimit] = useState('5000000');
+  // const [isCreditBlocked, setIsCreditBlocked] = useState('Tidak');
   const [notes, setNotes] = useState('');
   const [isActive, setIsActive] = useState(true);
 
@@ -82,15 +82,15 @@ export default function CustomerPage() {
     setEditId(null);
     setCustomerCode('');
     setCustomerName('');
-    setCustomerType('');
+    // setCustomerType('');
     setPhone('');
-    setEmail('');
+    // setEmail('');
     setContactPerson('');
     setCityName('');
     setAddress('');
-    setPaymentTermDays('30');
-    setCreditLimit('5000000');
-    setIsCreditBlocked('Tidak');
+    // setPaymentTermDays('30');
+    // setCreditLimit('5000000');
+    // setIsCreditBlocked('Tidak');
     setNotes('');
     setIsActive(true);
     setFormError('');
@@ -101,15 +101,15 @@ export default function CustomerPage() {
     setEditId(item.customer_id);
     setCustomerCode(item.customer_code || '');
     setCustomerName(item.customer_name || '');
-    setCustomerType(item.customer_type || 'Bengkel');
-    setPhone(item.phone || '');
-    setEmail(item.email || '');
+    // setCustomerType(item.customer_type || 'Bengkel');
+    // setPhone(item.phone || '');
+    // setEmail(item.email || '');
     setContactPerson(item.contact_person || '');
     setCityName(item.city_name || '');
     setAddress(item.address || '');
-    setPaymentTermDays(item.payment_term_days?.toString() || '30');
-    setCreditLimit(item.credit_limit?.toString() || '5000000');
-    setIsCreditBlocked(item.is_credit_blocked ? 'Ya' : 'Tidak');
+    // setPaymentTermDays(item.payment_term_days?.toString() || '30');
+    // setCreditLimit(item.credit_limit?.toString() || '5000000');
+    // setIsCreditBlocked(item.is_credit_blocked ? 'Ya' : 'Tidak');
     setNotes(item.notes || '');
     setIsActive(item.is_active);
     setFormError('');
@@ -144,15 +144,15 @@ export default function CustomerPage() {
         body: JSON.stringify({
           customer_code: customerCode,
           customer_name: customerName,
-          customer_type: customerType,
+          // customer_type: customerType,
           phone,
-          email,
+          // email,
           contact_person: contactPerson,
           city_name: cityName,
           address,
-          payment_term_days: parseInt(paymentTermDays) || 0,
-          credit_limit: parseFloat(creditLimit) || 0,
-          is_credit_blocked: isCreditBlocked === 'Ya',
+          // payment_term_days: parseInt(paymentTermDays) || 0,
+          // credit_limit: parseFloat(creditLimit) || 0,
+          // is_credit_blocked: isCreditBlocked === 'Ya',
           notes,
           is_active: isActive,
         }),
@@ -407,27 +407,39 @@ export default function CustomerPage() {
                   </div>
                 )}
 
+                {editId && (
+                  <div className="form-group">
+                    <label className="form-label">Kode Customer <span style={{ color: 'red' }}>*</span></label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Isi kosong untuk generate otomatis"
+                      value={customerCode}
+                      onChange={(e) => setCustomerCode(e.target.value)}
+                      required={!!editId}
+                      readOnly={!!editId}
+                    />
+                  </div>
+                )}
+                
                 {/* 2 Column Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   {/* Left Column */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
-                    {editId && (
-                      <div className="form-group">
-                        <label className="form-label">Kode Customer <span style={{ color: 'red' }}>*</span></label>
-                        <input
-                          type="text"
-                          className="form-input"
-                          placeholder="Isi kosong untuk generate otomatis"
-                          value={customerCode}
-                          onChange={(e) => setCustomerCode(e.target.value)}
-                          required={!!editId}
-                          readOnly={!!editId}
-                        />
-                      </div>
-                    )}
 
                     <div className="form-group">
+                      <label className="form-label">Nama Customer <span style={{ color: 'red' }}>*</span></label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Bengkel Maju Motor"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        required
+                      />
+                    </div>
+                    {/* <div className="form-group">
                       <label className="form-label">Jenis Customer <span style={{ color: 'red' }}>*</span></label>
                       <SearchableSelect
                         value={customerType}
@@ -440,8 +452,8 @@ export default function CustomerPage() {
                         placeholder="Pilih jenis customer..."
                         className="form-select form-input"
                       />
-                    </div>
-                    <div className="form-group">
+                    </div> */}
+                    {/* <div className="form-group">
                       <label className="form-label">Email</label>
                       <input
                         type="email"
@@ -450,7 +462,7 @@ export default function CustomerPage() {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                       />
-                    </div>
+                    </div> */}
                     <div className="form-group">
                       <label className="form-label">Kota</label>
                       <input
@@ -461,7 +473,7 @@ export default function CustomerPage() {
                         onChange={(e) => setCityName(e.target.value)}
                       />
                     </div>
-                    <div className="form-group">
+                    {/* <div className="form-group">
                       <label className="form-label">Termin Pembayaran (Hari)</label>
                       <input
                         type="number"
@@ -470,8 +482,8 @@ export default function CustomerPage() {
                         value={paymentTermDays}
                         onChange={(e) => setPaymentTermDays(e.target.value)}
                       />
-                    </div>
-                    <div className="form-group">
+                    </div> */}
+                    {/* <div className="form-group">
                       <label className="form-label">Batas Kredit</label>
                       <input
                         type="number"
@@ -480,12 +492,12 @@ export default function CustomerPage() {
                         value={creditLimit}
                         onChange={(e) => setCreditLimit(e.target.value)}
                       />
-                    </div>
+                    </div> */}
                   </div>
 
                   {/* Right Column */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div className="form-group">
+                    {/* <div className="form-group">
                       <label className="form-label">Nama Customer <span style={{ color: 'red' }}>*</span></label>
                       <input
                         type="text"
@@ -495,7 +507,7 @@ export default function CustomerPage() {
                         onChange={(e) => setCustomerName(e.target.value)}
                         required
                       />
-                    </div>
+                    </div> */}
                     <div className="form-group">
                       <label className="form-label">No. Telepon</label>
                       <input
@@ -516,7 +528,7 @@ export default function CustomerPage() {
                         onChange={(e) => setContactPerson(e.target.value)}
                       />
                     </div>
-                    <div className="form-group">
+                    {/* <div className="form-group">
                       <label className="form-label">Alamat</label>
                       <textarea
                         className="form-input"
@@ -526,8 +538,8 @@ export default function CustomerPage() {
                         onChange={(e) => setAddress(e.target.value)}
                         style={{ resize: 'vertical' }}
                       />
-                    </div>
-                    <div className="form-group">
+                    </div> */}
+                    {/* <div className="form-group">
                       <label className="form-label">Blokir Kredit</label>
                       <SearchableSelect
                         value={isCreditBlocked}
@@ -539,10 +551,21 @@ export default function CustomerPage() {
                         placeholder="Pilih status kredit..."
                         className="form-select form-input"
                       />
-                    </div>
+                    </div> */}
                   </div>
                 </div>
 
+                <div className="form-group">
+                  <label className="form-label">Alamat</label>
+                  <textarea
+                    className="form-input"
+                    rows={3}
+                    placeholder="Jl. Raya Industri No. 88, Bekasi..."
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    style={{ resize: 'vertical' }}
+                  />
+                </div>
                 {/* Full Width Keterangan */}
                 <div className="form-group">
                   <label className="form-label">Keterangan</label>
