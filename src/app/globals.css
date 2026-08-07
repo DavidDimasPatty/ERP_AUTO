@@ -335,6 +335,11 @@ h6 {
   color: #fff;
 }
 
+.btn-warning {
+  background: var(--warning);
+  color: #fff;
+}
+
 .btn-primary:hover {
   background: var(--primary-hover);
   box-shadow: 0 0 15px var(--primary-glow);

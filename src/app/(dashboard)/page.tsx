@@ -1,63 +1,10 @@
 import React from 'react';
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
+import SalesLineChart from '@/components/SalesLineChart';
 
 export const revalidate = 0; // Disable cache for live stats
 
-function SalesChartCard({
-  title,
-  subtitle,
-  data,
-  maxValue,
-}: {
-  title: string;
-  subtitle: string;
-  data: Array<{ label: string; value: number }>;
-  maxValue: number;
-}) {
-  const formatRupiah = (num: number) =>
-    new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      maximumFractionDigits: 0,
-    }).format(num);
-
-  return (
-    <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      <div>
-        <h3 style={{ fontSize: '1.2rem' }}>{title}</h3>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>{subtitle}</p>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '0.75rem', minHeight: '220px' }}>
-        {data.map((item) => {
-          const height = Math.max(8, (item.value / maxValue) * 100);
-          return (
-            <div key={item.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.45rem' }}>
-              <div style={{ height: '140px', width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-                <div
-                  style={{
-                    width: '100%',
-                    maxWidth: '42px',
-                    height: `${height}%`,
-                    minHeight: item.value > 0 ? '8px' : '4px',
-                    borderRadius: '999px 999px 6px 6px',
-                    background: 'linear-gradient(180deg, var(--primary) 0%, var(--success) 100%)',
-                    boxShadow: '0 8px 16px rgba(37, 99, 235, 0.16)',
-                  }}
-                />
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: 700 }}>{item.label}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{formatRupiah(item.value)}</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 export default async function DashboardPage() {
   // 1. Fetch Stats
@@ -150,8 +97,7 @@ export default async function DashboardPage() {
     };
   });
 
-  const weeklyMaxValue = Math.max(...weeklySales.map((item) => item.value), 1);
-  const monthlyMaxValue = Math.max(...monthlySales.map((item) => item.value), 1);
+
 
   // Recent Sales
   const recentSales = await prisma.t_sales.findMany({
@@ -306,7 +252,7 @@ export default async function DashboardPage() {
               <span style={{ fontSize: '1.5rem' }}>📦</span>
               <span>Input Pembelian</span>
             </Link>
-            <Link href="/returns" className="btn btn-secondary" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', height: '100px', justifyContent: 'center' }}>
+            <Link href="/returns" className="btn btn-warning" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', height: '100px', justifyContent: 'center' }}>
               <span style={{ fontSize: '1.5rem' }}>🔄</span>
               <span>Retur Penjualan</span>
             </Link>
@@ -324,17 +270,15 @@ export default async function DashboardPage() {
         gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
         gap: '2rem',
       }}>
-        <SalesChartCard
+        <SalesLineChart
           title="Penjualan Mingguan"
           subtitle="Ringkasan omzet 7 hari terakhir"
           data={weeklySales}
-          maxValue={weeklyMaxValue}
         />
-        <SalesChartCard
+        <SalesLineChart
           title="Penjualan Bulanan"
           subtitle="Ringkasan omzet 6 bulan terakhir"
           data={monthlySales}
-          maxValue={monthlyMaxValue}
         />
       </div>
 

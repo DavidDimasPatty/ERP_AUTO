@@ -22,7 +22,7 @@ export default function SalesTransactionPage() {
   const [selectedPriceLevel, setSelectedPriceLevel] = useState('1');
 
   // Payment State
-  const [paymentMethod, setPaymentMethod] = useState('CASH');
+  const [paymentMethod, setPaymentMethod] = useState('');
   const [tenderedAmount, setTenderedAmount] = useState('');
   const [discountAmount, setDiscountAmount] = useState(0);
 
@@ -263,6 +263,7 @@ export default function SalesTransactionPage() {
       fetchMasterData();
       setActiveTab("ECERAN");
       setSelectedPriceLevel("1");
+      setPaymentMethod("");
     } catch (err: any) {
       setErrorMsg(err.message);
     } finally {

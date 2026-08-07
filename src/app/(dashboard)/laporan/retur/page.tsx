@@ -262,7 +262,7 @@ export default function ReturReport() {
 
           <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
             <button className="btn btn-secondary" onClick={handleExportExcel} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#16a34a', borderColor: '#16a34a' }}>
-              📊 Export Excel
+              📊 Export CSV
             </button>
             <button className="btn btn-primary" onClick={handlePrintPDF} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               🖨️ Export PDF / Cetak
