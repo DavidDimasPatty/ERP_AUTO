@@ -215,7 +215,7 @@ export async function POST(req: NextRequest) {
       const dateStr = `${year}${month}${day}`;
 
       const lastSale = await tx.$queryRawUnsafe<any[]>(
-        `SELECT sales_number FROM t_sales WHERE sales_number LIKE 'PJ-${dateStr}-%' ORDER BY sales_number DESC LIMIT 1 FOR UPDATE`
+        `SELECT sales_number FROM t_sales WHERE sales_number LIKE 'PJMM-${dateStr}-%' ORDER BY sales_number DESC LIMIT 1 FOR UPDATE`
       );
 
       let nextSeq = 1;
@@ -227,7 +227,7 @@ export async function POST(req: NextRequest) {
         }
       }
       const seqFormatted = String(nextSeq).padStart(6, '0');
-      const salesNumber = `PJ-${dateStr}-${seqFormatted}`;
+      const salesNumber = `PJMM-${dateStr}-${seqFormatted}`;
 
       //masukin ke sale
       const sales = await tx.t_sales.create({

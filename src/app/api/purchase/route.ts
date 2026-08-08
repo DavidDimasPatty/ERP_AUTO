@@ -198,7 +198,7 @@ export async function POST(req: NextRequest) {
 
       // cek last purchase number untuk generate nomor baru
       const lastPurchase = await tx.$queryRawUnsafe<any[]>(
-        `SELECT purchase_number FROM t_purchase WHERE purchase_number LIKE 'PB-${dateStr}-%' ORDER BY purchase_number DESC LIMIT 1 FOR UPDATE`
+        `SELECT purchase_number FROM t_purchase WHERE purchase_number LIKE 'PBMM-${dateStr}-%' ORDER BY purchase_number DESC LIMIT 1 FOR UPDATE`
       );
 
       let nextSeq = 1;
@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
         }
       }
       const seqFormatted = String(nextSeq).padStart(6, '0');
-      const purchaseNumber = `PB-${dateStr}-${seqFormatted}`;
+      const purchaseNumber = `PBMM-${dateStr}-${seqFormatted}`;
 
       //insert purchase
       const purchase = await tx.t_purchase.create({

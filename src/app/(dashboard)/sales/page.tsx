@@ -684,12 +684,16 @@ export default function SalesTransactionPage() {
           style={{ display: isPrintReady ? 'block' : 'none', position: 'absolute', left: '-9999px', top: 0, width: '1px', height: '1px', overflow: 'hidden' }}
         >
           <div style={{ width: '100%', padding: '1rem', background: '#fff', color: '#000' }}>
-            <h2 style={{ margin: '0 0 0.5rem' }}>STRUK PENJUALAN</h2>
-            <p style={{ margin: '0.25rem 0' }}>No. Transaksi: <strong>{receiptData.sales_number}</strong></p>
+            <h2 style={{ margin: '0 0 0.5rem' }}>MITRA MOTOR </h2>
+            <p style={{ margin: '0 0 0.5rem' }}>Alamat : PONDOK UNGGU PERMAI NO. 7C, KOTA BEKASI, JAWA BARAT, INDONESIA</p>
+            <p style={{ margin: '0 0 0.5rem' }}>No.HP : +(62)813-1026-5040</p>
+            <hr />
+            <hr />
+            <p style={{ margin: '0.25rem 0', marginTop: '25px' }}>No. Transaksi: <strong>{receiptData.sales_number}</strong></p>
             <p style={{ margin: '0.25rem 0' }}>Tanggal: <strong>{new Date(receiptData.sales_datetime).toLocaleString('id-ID')}</strong></p>
             <p style={{ margin: '0.25rem 0' }}>Kasir: <strong>{receiptData.cashier_name_snapshot || '-'}</strong></p>
             <p style={{ margin: '0.25rem 0' }}>Customer: <strong>{receiptData.customer_name_snapshot || 'Pelanggan Umum'}</strong></p>
-            <p style={{ margin: '0.25rem 0 1rem' }}>Jenis: <strong>{receiptData.sales_type}</strong></p>
+            {/* <p style={{ margin: '0.25rem 0 1rem' }}>Jenis: <strong>{receiptData.sales_type}</strong></p> */}
 
             <table>
               <thead>

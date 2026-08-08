@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
       const dateStr = `${year}${month}${day}`;
 
       const lastReturn = await tx.$queryRawUnsafe<any[]>(
-        `SELECT sales_return_number FROM t_sales_return WHERE sales_return_number LIKE 'RT-${dateStr}-%' ORDER BY sales_return_number DESC LIMIT 1 FOR UPDATE`
+        `SELECT sales_return_number FROM t_sales_return WHERE sales_return_number LIKE 'RTMM-${dateStr}-%' ORDER BY sales_return_number DESC LIMIT 1 FOR UPDATE`
       );
 
       let nextSeq = 1;
@@ -189,7 +189,7 @@ export async function POST(req: NextRequest) {
         }
       }
       const seqFormatted = String(nextSeq).padStart(6, '0');
-      const returnNumber = `RT-${dateStr}-${seqFormatted}`;
+      const returnNumber = `RTMM-${dateStr}-${seqFormatted}`;
 
       // Insert return sales
       const returnHeader = await tx.t_sales_return.create({
