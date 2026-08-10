@@ -22,7 +22,7 @@ export default function SalesTransactionPage() {
   const [selectedPriceLevel, setSelectedPriceLevel] = useState('1');
 
   // Payment State
-  const [paymentMethod, setPaymentMethod] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [tenderedAmount, setTenderedAmount] = useState('');
   const [discountAmount, setDiscountAmount] = useState(0);
 
@@ -459,16 +459,16 @@ export default function SalesTransactionPage() {
             {/* Pilih Produk Card */}
             <div className="card" style={{ padding: '1.5rem' }}>
               <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Pilih Produk</h3>
+              <div className="form-group" style={{ marginBottom: "20px" }}>
+                <SearchableSelect
+                  value={selectedProduct?.product_id?.toString() || ''}
+                  options={products.map(p => ({ value: p.product_id.toString(), label: `${p.product_code} - ${p.product_name}` }))}
+                  onChange={(value) => handleProductSelect(value)}
+                  placeholder="-- Pilih Produk --"
+                  className="form-select form-input"
+                />
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <SearchableSelect
-                    value={selectedProduct?.product_id?.toString() || ''}
-                    options={products.map(p => ({ value: p.product_id.toString(), label: `${p.product_code} - ${p.product_name}` }))}
-                    onChange={(value) => handleProductSelect(value)}
-                    placeholder="-- Pilih Produk --"
-                    className="form-select form-input"
-                  />
-                </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem' }}>Level Harga</label>
                   <select
@@ -545,7 +545,9 @@ export default function SalesTransactionPage() {
                         <td style={{ padding: '0.75rem 0.5rem' }}><span className="badge" style={{ background: 'rgba(99,102,241,0.1)', color: 'var(--primary)' }}>{item.price_level_name}</span></td>
                         <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>{item.unit_price.toLocaleString('id-ID')}</td>
                         <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
-                          <input type="number" className="form-input" value={item.quantity} onChange={(e) => updateCartQty(index, e.target.value)} style={{ width: '60px', padding: '0.4rem', textAlign: 'center' }} min="1" />
+                          <input type="text" className="form-input" value={item.quantity}
+                            onChange={(e) => updateCartQty(index, e.target.value)}
+                            style={{ width: '60px', padding: '0.4rem', textAlign: 'center' }} min="1" />
                         </td>
                         <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 600 }}>{item.line_total.toLocaleString('id-ID')}</td>
                         <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>

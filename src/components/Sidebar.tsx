@@ -58,8 +58,8 @@ export default function Sidebar({ user, menus }: SidebarProps) {
 
       {!collapsed && (
         <div className="brand">
-          <div className="brand-icon">E</div>
-          <span>ERP Sparepart</span>
+          <div className="brand-icon">M</div>
+          <span>Mitra Motor</span>
         </div>
       )}
 

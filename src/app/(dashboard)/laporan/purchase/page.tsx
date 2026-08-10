@@ -335,7 +335,7 @@ export default function PurchaseReport() {
         {/* PDF Header for Printing */}
         <div className="print-preview" style={{ display: isPrintReady ? "block" : "none" }}>
           <div className="print-header">
-            <h1>SIMPLE ERP TOKO SPAREPART MOTOR</h1>
+            <h1>MITRA MOTOR</h1>
             <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem' }}>LAPORAN TRANSAKSI PEMBELIAN</p>
             <p style={{ margin: 0, fontSize: '0.8rem', color: '#555' }}>
               Periode: {start ? start : 'Semua'} s/d {end ? end : 'Semua'} | Dicetak: {new Date().toLocaleString('id-ID')}

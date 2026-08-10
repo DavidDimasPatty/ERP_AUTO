@@ -50,7 +50,7 @@ export default function LoginPage() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', marginBottom: '2rem' }}>
           <div className="brand-icon" style={{ width: '48px', height: '48px', fontSize: '1.5rem' }}>E</div>
           <h2 style={{ fontSize: '1.8rem', textAlign: 'center' }}>
-            <span>Auto</span> Sparepart
+            <span>Mitra</span> Motor
           </h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', textAlign: 'center' }}>
             Silakan masuk untuk mengelola toko Anda
