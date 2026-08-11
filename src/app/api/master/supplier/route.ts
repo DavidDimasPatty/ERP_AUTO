@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (isActiveParam !== null) {
-      where.is_active = isActiveParam=="true";
+      where.is_active = isActiveParam == "true";
     }
 
     const [total, data] = await prisma.$transaction([

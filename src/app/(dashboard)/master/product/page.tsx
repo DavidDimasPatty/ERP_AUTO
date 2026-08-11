@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Swal from 'sweetalert2';
-import SearchableSelect from '@/components/SearchableSelect';
+import AsyncSearchableSelect, { AsyncSelectOption } from '@/components/AsyncSearchableSelect';
 
 interface Product {
   product_id: number;
@@ -25,9 +25,7 @@ export default function ProductPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  // Units & Brands for Select dropdowns
-  const [units, setUnits] = useState<{ unit_id: number; unit_name: string }[]>([]);
-  const [brands, setBrands] = useState<{ brand_id: number; brand_name: string }[]>([]);
+
 
   // Form State
   const [modalOpen, setModalOpen] = useState(false);
@@ -61,30 +59,49 @@ export default function ProductPage() {
     }
   };
 
-  const fetchUnitsAndBrands = async () => {
-    try {
-      const resU = await fetch('/api/master/unit?is_active=true');
-      if (resU.ok) {
-        const jU = await resU.json();
-        setUnits(jU.data || []);
-      }
-      const resB = await fetch('/api/master/brand?is_active=true');
-      if (resB.ok) {
-        const jB = await resB.json();
-        setBrands(jB.data || []);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
+  const fetchUnitOptions = useCallback(async (search: string): Promise<AsyncSelectOption[]> => {
+    const params = new URLSearchParams({ is_active: 'true', limit: '20' });
+    if (search) params.set('search', search);
+    const res = await fetch(`/api/master/unit?${params}`);
+    const json = await res.json();
+    return (json.data || []).map((u: any) => ({
+      value: u.unit_id.toString(),
+      label: u.unit_name,
+    }));
+  }, []);
+
+  const resolveUnit = useCallback(async (value: string): Promise<AsyncSelectOption | null> => {
+    const res = await fetch(`/api/master/unit?limit=50`);
+    const json = await res.json();
+    const found = (json.data || []).find((u: any) => u.unit_id.toString() === value);
+    if (found) return { value: found.unit_id.toString(), label: found.unit_name };
+    return null;
+  }, []);
+
+  const fetchBrandOptions = useCallback(async (search: string): Promise<AsyncSelectOption[]> => {
+    const params = new URLSearchParams({ is_active: 'true', limit: '20' });
+    if (search) params.set('search', search);
+    const res = await fetch(`/api/master/brand?${params}`);
+    const json = await res.json();
+    return (json.data || []).map((b: any) => ({
+      value: b.brand_id.toString(),
+      label: b.brand_name,
+    }));
+  }, []);
+
+  const resolveBrand = useCallback(async (value: string): Promise<AsyncSelectOption | null> => {
+    const res = await fetch(`/api/master/brand?limit=50`);
+    const json = await res.json();
+    const found = (json.data || []).find((b: any) => b.brand_id.toString() === value);
+    if (found) return { value: found.brand_id.toString(), label: found.brand_name };
+    return null;
+  }, []);
 
   useEffect(() => {
     fetchProducts();
   }, [page, search]);
 
-  useEffect(() => {
-    fetchUnitsAndBrands();
-  }, []);
+
 
   const handleOpenCreate = () => {
     setEditId(null);
@@ -435,22 +452,24 @@ export default function ProductPage() {
 
                     <div className="form-group">
                       <label className="form-label">Satuan <span style={{ color: 'red' }}>*</span></label>
-                      <SearchableSelect
+                      <AsyncSearchableSelect
                         value={unitId}
-                        options={units.map(u => ({ value: u.unit_id.toString(), label: u.unit_name }))}
+                        fetchOptions={fetchUnitOptions}
+                        resolveSelected={resolveUnit}
                         onChange={(value) => setUnitId(value)}
-                        placeholder="Cari satuan..."
+                        placeholder="Ketik nama satuan..."
                         className="form-select form-input"
                       />
                     </div>
 
                     <div className="form-group">
                       <label className="form-label">Merek</label>
-                      <SearchableSelect
+                      <AsyncSearchableSelect
                         value={brandId}
-                        options={brands.map(b => ({ value: b.brand_id.toString(), label: b.brand_name }))}
+                        fetchOptions={fetchBrandOptions}
+                        resolveSelected={resolveBrand}
                         onChange={(value) => setBrandId(value)}
-                        placeholder="Cari merek..."
+                        placeholder="Ketik nama merek..."
                         className="form-select form-input"
                       />
                     </div>

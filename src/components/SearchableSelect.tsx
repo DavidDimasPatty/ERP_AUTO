@@ -27,7 +27,9 @@ export default function SearchableSelect({
   className = '',
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
+  // query untuk filter, inputValue untuk display saat open
   const [query, setQuery] = useState('');
+  const [inputValue, setInputValue] = useState('');
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
   const selectedOption = useMemo(
@@ -35,11 +37,13 @@ export default function SearchableSelect({
     [options, value]
   );
 
+  // Saat dropdown ditutup, reset ke default
   useEffect(() => {
     if (!open) {
-      setQuery(selectedOption?.label ?? '');
+      setQuery('');
+      setInputValue('');
     }
-  }, [open, selectedOption]);
+  }, [open]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -52,6 +56,7 @@ export default function SearchableSelect({
     return () => window.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Filter: jika query kosong, tampilkan semua opsi
   const filteredOptions = useMemo(() => {
     if (noSearch || query.trim() === '') {
       return options;
@@ -60,18 +65,32 @@ export default function SearchableSelect({
     return options.filter(opt => opt.label.toLowerCase().includes(lowerQuery));
   }, [noSearch, options, query]);
 
+  const handleFocus = () => {
+    // Reset query & inputValue saat dibuka agar semua opsi tampil
+    setQuery('');
+    setInputValue('');
+    setOpen(true);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInputValue(val);
+    setQuery(val);
+    if (!open) setOpen(true);
+  };
+
   return (
     <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
       <input
         type="text"
         className={`${className}`}
-        value={open ? query : selectedOption?.label ?? query}
-        placeholder={placeholder}
-        onFocus={() => setOpen(true)}
-        onChange={e => {
-          setQuery(e.target.value);
-          if (!open) setOpen(true);
-        }}
+        // Saat open: tampilkan apa yang diketik user (inputValue)
+        // Saat tutup: tampilkan label dari opsi yang dipilih
+        value={open ? inputValue : (selectedOption?.label ?? '')}
+        // Placeholder saat open menampilkan label yang sudah dipilih sebagai hint
+        placeholder={open ? (selectedOption?.label ?? placeholder) : placeholder}
+        onFocus={handleFocus}
+        onChange={handleChange}
         readOnly={disabled && !open}
         disabled={disabled}
         style={{ width: '100%' }}
@@ -111,9 +130,10 @@ export default function SearchableSelect({
                   textAlign: 'left',
                   padding: '0.75rem 1rem',
                   border: 'none',
-                  background: 'transparent',
+                  background: option.value === value ? 'var(--bg-secondary)' : 'transparent',
                   cursor: 'pointer',
-                  color: 'var(--text-primary)',
+                  color: option.value === value ? 'var(--primary)' : 'var(--text-primary)',
+                  fontWeight: option.value === value ? 600 : 400,
                 }}
               >
                 {option.label}

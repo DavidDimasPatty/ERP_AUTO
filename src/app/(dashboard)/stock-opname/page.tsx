@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import Swal from 'sweetalert2';
 
 interface ProductOption {
@@ -19,48 +19,65 @@ interface OpnameEntry {
 export default function StockOpnamePage() {
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [search, setSearch] = useState('');
+  const [total, setTotal] = useState(0);
   const [sortKey, setSortKey] = useState<'product_code' | 'product_name' | 'stock_quantity' | null>('product_code');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10;
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Batch edits: keyed by product_id
   const [opnameEdits, setOpnameEdits] = useState<Record<number, { counted_quantity: string; notes: string }>>({});
   const [globalNotes, setGlobalNotes] = useState('');
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async (searchQuery: string, page: number) => {
     try {
-      const res = await fetch('/api/master/product?is_active=true&page=1&limit=100');
+      setLoading(true);
+      const params = new URLSearchParams({
+        is_active: 'true',
+        page: page.toString(),
+        limit: rowsPerPage.toString(),
+      });
+      if (searchQuery) params.set('search', searchQuery);
+      const res = await fetch(`/api/master/product?${params}`);
       const json = await res.json();
       if (res.ok) {
         setProducts(json.data || []);
+        setTotal(json.pagination?.total ?? 0);
       }
     } catch (error) {
       console.error('Error fetching products', error);
+    } finally {
+      setLoading(false);
     }
+  }, [rowsPerPage]);
+
+  // Fetch saat halaman pertama dibuka
+  useEffect(() => {
+    fetchProducts('', 1);
+  }, [fetchProducts]);
+
+  // Debounce search: fetch saat user berhenti mengetik
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    setCurrentPage(1);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      fetchProducts(val, 1);
+    }, 350);
   };
 
+  // Fetch saat ganti halaman
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    fetchProducts(search, currentPage);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search]);
-
+  // Sorting dilakukan client-side atas data satu halaman yang sudah di-fetch
   const filteredProducts = useMemo(() => {
-    const query = search.toLowerCase();
-    const baseProducts = !query
-      ? products
-      : products.filter((product) => {
-        const text = `${product.product_code} ${product.product_name}`.toLowerCase();
-        return text.includes(query);
-      });
-
-    if (!sortKey) return baseProducts;
-
-    return [...baseProducts].sort((a, b) => {
+    if (!sortKey) return products;
+    return [...products].sort((a, b) => {
       const aValue =
         sortKey === 'stock_quantity'
           ? a.stock?.stock_quantity ?? 0
@@ -78,10 +95,10 @@ export default function StockOpnamePage() {
         ? String(aValue).localeCompare(String(bValue))
         : String(bValue).localeCompare(String(aValue));
     });
-  }, [products, search, sortKey, sortOrder]);
+  }, [products, sortKey, sortOrder]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / rowsPerPage));
-  const paginatedProducts = filteredProducts.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const totalPages = Math.max(1, Math.ceil(total / rowsPerPage));
+  const paginatedProducts = filteredProducts;
 
   const sortIndicator = (key: 'product_code' | 'product_name' | 'stock_quantity') =>
     sortKey === key ? (sortOrder === 'asc' ? '▲' : '▼') : '';
@@ -196,7 +213,7 @@ export default function StockOpnamePage() {
       await Swal.fire({ icon: 'success', title: 'Berhasil', text: data.message || 'Stock opname berhasil disimpan' });
       setOpnameEdits({});
       setGlobalNotes('');
-      fetchProducts();
+      fetchProducts(search, currentPage);
     } catch (error: any) {
       await Swal.fire({ icon: 'error', title: 'Gagal', text: error.message || 'Terjadi kesalahan' });
     } finally {
@@ -219,13 +236,13 @@ export default function StockOpnamePage() {
           <div>
             <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Data Produk</h3>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Menampilkan {filteredProducts.length} dari {products.length} produk
+              Total {total} produk{search ? ` (filter: "${search}")` : ''}
             </span>
           </div>
           <input
             className="form-input"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Cari kode atau nama produk..."
             style={{ width: '300px' }}
           />

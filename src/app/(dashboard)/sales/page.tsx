@@ -1,15 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Swal from 'sweetalert2';
+import AsyncSearchableSelect, { AsyncSelectOption } from '@/components/AsyncSearchableSelect';
 import SearchableSelect from '@/components/SearchableSelect';
 
 export default function SalesTransactionPage() {
   const [activeTab, setActiveTab] = useState('ECERAN');
 
-  // Master Data
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
+  // Master data hanya disimpan untuk item yang sedang dipilih (produk di cart)
+  const [productsCache, setProductsCache] = useState<Record<string, any>>({});
 
   // Form State
   const [selectedCustomer, setSelectedCustomer] = useState('0');
@@ -33,31 +33,50 @@ export default function SalesTransactionPage() {
   const [receiptData, setReceiptData] = useState<any | null>(null);
   const [isPrintReady, setIsPrintReady] = useState(false);
 
-  // Fetch Master Data
-  const fetchMasterData = async () => {
-    try {
-      const resCust = await fetch('/api/master/customer?is_active=true');
-      const dataCust = await resCust.json();
-      if (dataCust.data) {
-        const defaultCustomer = {
-          customer_id: 0,
-          customer_name: 'Pelanggan Umum',
-          customer_code: 'UMUM',
-          is_active: true,
-        };
-        setCustomers([defaultCustomer, ...dataCust.data]);
-      }
-      const resProd = await fetch('/api/master/product?is_active=true');
-      const dataProd = await resProd.json();
-      if (dataProd.data) setProducts(dataProd.data);
-    } catch (err) {
-      console.error('Error fetching master data:', err);
-    }
-  };
-
-  useEffect(() => {
-    fetchMasterData();
+  // Async fetch untuk customer dropdown
+  const fetchCustomerOptions = useCallback(async (search: string): Promise<AsyncSelectOption[]> => {
+    const params = new URLSearchParams({ is_active: 'true', limit: '20' });
+    if (search) params.set('search', search);
+    const res = await fetch(`/api/master/customer?${params}`);
+    const data = await res.json();
+    const defaultOpt: AsyncSelectOption = { value: '0', label: 'Pelanggan Umum (UMUM)' };
+    const opts: AsyncSelectOption[] = (data.data || []).map((c: any) => ({
+      value: c.customer_id.toString(),
+      label: `${c.customer_name} (${c.customer_code})`,
+    }));
+    return [defaultOpt, ...opts];
   }, []);
+
+  const resolveCustomer = useCallback(async (value: string): Promise<AsyncSelectOption | null> => {
+    if (value === '0') return { value: '0', label: 'Pelanggan Umum (UMUM)' };
+    const res = await fetch(`/api/master/customer?search=${value}&limit=5`);
+    const data = await res.json();
+    const found = (data.data || []).find((c: any) => c.customer_id.toString() === value);
+    if (found) return { value: found.customer_id.toString(), label: `${found.customer_name} (${found.customer_code})` };
+    return null;
+  }, []);
+
+  // Async fetch untuk produk dropdown
+  const fetchProductOptions = useCallback(async (search: string): Promise<AsyncSelectOption[]> => {
+    const params = new URLSearchParams({ is_active: 'true', limit: '20' });
+    if (search) params.set('search', search);
+    const res = await fetch(`/api/master/product?${params}`);
+    const data = await res.json();
+    const opts: AsyncSelectOption[] = (data.data || []).map((p: any) => {
+      // Cache product data untuk dipakai saat add to cart
+      setProductsCache(prev => ({ ...prev, [p.product_id.toString()]: p }));
+      return { value: p.product_id.toString(), label: `${p.product_code} - ${p.product_name}` };
+    });
+    return opts;
+  }, []);
+
+  const resolveProduct = useCallback(async (value: string): Promise<AsyncSelectOption | null> => {
+    if (productsCache[value]) {
+      const p = productsCache[value];
+      return { value: p.product_id.toString(), label: `${p.product_code} - ${p.product_name}` };
+    }
+    return null;
+  }, [productsCache]);
 
   useEffect(() => {
     if (isPrintReady && receiptData) {
@@ -80,12 +99,21 @@ export default function SalesTransactionPage() {
   }, []);
 
   // Handle Product Search/Selection
-  const handleProductSelect = (productId: string) => {
+  const handleProductSelect = useCallback(async (productId: string) => {
     if (!productId) {
       setSelectedProduct(null);
       return;
     }
-    const prod = products.find(p => p.product_id.toString() === productId);
+    // Ambil dari cache dulu, jika tidak ada fetch individual
+    let prod = productsCache[productId];
+    if (!prod) {
+      try {
+        const res = await fetch(`/api/master/product?search=${productId}&limit=1`);
+        const data = await res.json();
+        prod = (data.data || []).find((p: any) => p.product_id.toString() === productId);
+        if (prod) setProductsCache(prev => ({ ...prev, [productId]: prod }));
+      } catch { /* ignore */ }
+    }
     if (prod) {
       const priceMap: Record<number, number> = {};
       if (prod.prices) {
@@ -100,7 +128,7 @@ export default function SalesTransactionPage() {
         unitName: prod.unit?.unit_name || 'PCS'
       });
     }
-  };
+  }, [productsCache]);
 
   const currentProductPrice = selectedProduct ? (selectedProduct.priceMap[parseInt(selectedPriceLevel)] || 0) : 0;
 
@@ -256,11 +284,10 @@ export default function SalesTransactionPage() {
       }
       // Reset form
       setCart([]);
-      setSelectedCustomer('');
+      setSelectedCustomer('0');
       setTenderedAmount('');
       setDiscountAmount(0);
       setNotes('');
-      fetchMasterData();
       setActiveTab("ECERAN");
       setSelectedPriceLevel("1");
       setPaymentMethod("");
@@ -400,12 +427,12 @@ export default function SalesTransactionPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Customer (Opsional)</label>
-                <SearchableSelect
-
+                <AsyncSearchableSelect
                   value={selectedCustomer}
-                  options={customers.map(c => ({ value: c.customer_id.toString(), label: `${c.customer_name} (${c.customer_code})` }))}
+                  fetchOptions={fetchCustomerOptions}
+                  resolveSelected={resolveCustomer}
                   onChange={(value) => setSelectedCustomer(value)}
-                  placeholder="Cari customer atau kode..."
+                  placeholder="Ketik nama atau kode customer..."
                   className="form-select form-input"
                 />
               </div>
@@ -460,11 +487,12 @@ export default function SalesTransactionPage() {
             <div className="card" style={{ padding: '1.5rem' }}>
               <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Pilih Produk</h3>
               <div className="form-group" style={{ marginBottom: "20px" }}>
-                <SearchableSelect
+                <AsyncSearchableSelect
                   value={selectedProduct?.product_id?.toString() || ''}
-                  options={products.map(p => ({ value: p.product_id.toString(), label: `${p.product_code} - ${p.product_name}` }))}
+                  fetchOptions={fetchProductOptions}
+                  resolveSelected={resolveProduct}
                   onChange={(value) => handleProductSelect(value)}
-                  placeholder="-- Pilih Produk --"
+                  placeholder="Ketik kode atau nama produk..."
                   className="form-select form-input"
                 />
               </div>
@@ -625,9 +653,10 @@ export default function SalesTransactionPage() {
                     { value: 'TRANSFER', label: 'Transfer Bank' },
                     { value: 'QRIS', label: 'QRIS' },
                   ]}
-                  onChange={(value) => setPaymentMethod(value)}
+                  onChange={(val: string) => setPaymentMethod(val)}
                   placeholder="Pilih metode pembayaran..."
                   className="form-select form-input"
+                  noSearch
                 />
               </div>
               <div className="form-group">

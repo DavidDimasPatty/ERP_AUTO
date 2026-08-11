@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
         ],
       }
       : {};
-      
+
     if (isActiveParam !== null && isActiveParam !== undefined) {
       where.is_active = isActiveParam == "true";
     }

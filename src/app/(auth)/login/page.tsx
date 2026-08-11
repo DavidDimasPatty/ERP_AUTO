@@ -48,7 +48,7 @@ export default function LoginPage() {
     }}>
       <div className="card" style={{ width: '100%', maxWidth: '420px', padding: '2.5rem' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', marginBottom: '2rem' }}>
-          <div className="brand-icon" style={{ width: '48px', height: '48px', fontSize: '1.5rem' }}>E</div>
+          <div className="brand-icon" style={{ width: '48px', height: '48px', fontSize: '1.5rem' }}>M</div>
           <h2 style={{ fontSize: '1.8rem', textAlign: 'center' }}>
             <span>Mitra</span> Motor
           </h2>

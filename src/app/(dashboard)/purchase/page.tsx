@@ -1,16 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Swal from 'sweetalert2';
-import SearchableSelect from '@/components/SearchableSelect';
+import AsyncSearchableSelect, { AsyncSelectOption } from '@/components/AsyncSearchableSelect';
 
 export default function PurchaseTransactionPage() {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [cart, setCart] = useState<any[]>([]);
-
-  // Master Data
-  const [suppliers, setSuppliers] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
+  // Master Data cache
+  const [productsCache, setProductsCache] = useState<Record<string, any>>({});
+  const [selectedSupplierName, setSelectedSupplierName] = useState('');
 
   // Form State
   const [selectedSupplier, setSelectedSupplier] = useState('');
@@ -27,26 +24,52 @@ export default function PurchaseTransactionPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  useEffect(() => {
-    const fetchMasterData = async () => {
-      try {
-        const resSup = await fetch('/api/master/supplier?is_active=true');
-        const dataSup = await resSup.json();
-        if (dataSup.data) setSuppliers(dataSup.data);
-
-        const resProd = await fetch('/api/master/product?is_active=true');
-        const dataProd = await resProd.json();
-        if (dataProd.data) setProducts(dataProd.data);
-      } catch (err) {
-        console.error('Error fetching master data:', err);
-      }
-    };
-    fetchMasterData();
+  // Async fetch supplier
+  const fetchSupplierOptions = useCallback(async (search: string): Promise<AsyncSelectOption[]> => {
+    const params = new URLSearchParams({ is_active: 'true', limit: '20' });
+    if (search) params.set('search', search);
+    const res = await fetch(`/api/master/supplier?${params}`);
+    const data = await res.json();
+    return (data.data || []).map((s: any) => ({
+      value: s.supplier_id.toString(),
+      label: s.supplier_name,
+    }));
   }, []);
+
+  const resolveSupplier = useCallback(async (value: string): Promise<AsyncSelectOption | null> => {
+    const res = await fetch(`/api/master/supplier?limit=50`);
+    const data = await res.json();
+    const found = (data.data || []).find((s: any) => s.supplier_id.toString() === value);
+    if (found) return { value: found.supplier_id.toString(), label: found.supplier_name };
+    return null;
+  }, []);
+
+  // Async fetch produk
+  const fetchProductOptions = useCallback(async (search: string): Promise<AsyncSelectOption[]> => {
+    const params = new URLSearchParams({ is_active: 'true', limit: '20' });
+    if (search) params.set('search', search);
+    const res = await fetch(`/api/master/product?${params}`);
+    const data = await res.json();
+    return (data.data || []).map((p: any) => {
+      setProductsCache(prev => ({ ...prev, [p.product_id.toString()]: p }));
+      return { value: p.product_id.toString(), label: `${p.product_code} - ${p.product_name}` };
+    });
+  }, []);
+
+  const resolveProductOption = useCallback(async (value: string): Promise<AsyncSelectOption | null> => {
+    if (productsCache[value]) {
+      const p = productsCache[value];
+      return { value: p.product_id.toString(), label: `${p.product_code} - ${p.product_name}` };
+    }
+    return null;
+  }, [productsCache]);
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [cart, setCart] = useState<any[]>([]);
 
   const handleAddProduct = async () => {
     if (!selectedProduct) return;
-    const prodInfo = products.find(p => p.product_id.toString() === selectedProduct);
+    const prodInfo = productsCache[selectedProduct];
     if (!prodInfo) return;
 
     const itemQty = parseInt(qty || '0');
@@ -98,10 +121,7 @@ export default function PurchaseTransactionPage() {
   };
 
   const totalPurchase = cart.reduce((acc, item) => acc + item.line_total, 0);
-  const activeSupplier = suppliers.find(s => s.supplier_id.toString() === selectedSupplier);
-
-  const currentProduct = products.find(p => p.product_id.toString() === selectedProduct);
-  const currentProductUnit = currentProduct?.unit?.unit_name || '-';
+  const currentProductUnit = productsCache[selectedProduct]?.unit?.unit_name || '-';
 
   const handleSubmit = async () => {
     setErrorMsg('');
@@ -214,11 +234,16 @@ export default function PurchaseTransactionPage() {
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Supplier <span style={{ color: 'var(--danger)' }}>*</span></label>
-              <SearchableSelect
+              <AsyncSearchableSelect
                 value={selectedSupplier}
-                options={suppliers.map(s => ({ value: s.supplier_id.toString(), label: s.supplier_name }))}
+                fetchOptions={fetchSupplierOptions}
+                resolveSelected={resolveSupplier}
                 onChange={value => setSelectedSupplier(value)}
-                placeholder="Cari supplier..."
+                onChangeWithLabel={(value, label) => {
+                  setSelectedSupplier(value);
+                  setSelectedSupplierName(label);
+                }}
+                placeholder="Ketik nama supplier..."
                 className="form-select form-input"
               />
             </div>
@@ -232,7 +257,7 @@ export default function PurchaseTransactionPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Nama Supplier</label>
-              <input type="text" className="form-input" value={activeSupplier ? activeSupplier.supplier_name : '-'} readOnly style={{ background: 'var(--bg-tertiary)' }} />
+              <input type="text" className="form-input" value={selectedSupplierName || '-'} readOnly style={{ background: 'var(--bg-tertiary)' }} />
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Catatan</label>
@@ -377,11 +402,12 @@ export default function PurchaseTransactionPage() {
             <div className="modal-body">
               <div className="form-group">
                 <label className="form-label">Produk <span style={{ color: 'var(--danger)' }}>*</span></label>
-                <SearchableSelect
+                <AsyncSearchableSelect
                   value={selectedProduct}
-                  options={products.map(p => ({ value: p.product_id.toString(), label: `${p.product_code} - ${p.product_name}` }))}
+                  fetchOptions={fetchProductOptions}
+                  resolveSelected={resolveProductOption}
                   onChange={value => setSelectedProduct(value)}
-                  placeholder="Cari produk berdasarkan kode atau nama..."
+                  placeholder="Ketik kode atau nama produk..."
                   className="form-select form-input"
                 />
               </div>
