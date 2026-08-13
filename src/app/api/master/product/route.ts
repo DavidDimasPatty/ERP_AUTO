@@ -10,16 +10,58 @@ export async function GET(req: NextRequest) {
     const skip = (page - 1) * limit;
     const isActiveParam = searchParams.get('is_active');
 
-    let where: any = {};
+    const keywords = search
+      ? search.split(/\s+/)
+      : [];
 
-    where = search
+    const where = search
       ? {
+        is_active: true,
+
         OR: [
-          { product_code: { contains: search } },
-          { product_name: { contains: search } },
+          // Search full string
+          {
+            product_code: {
+              contains: search,
+            },
+          },
+          {
+            product_name: {
+              contains: search,
+            },
+          },
+          {
+            brand: {
+              brand_name: {
+                contains: search,
+              },
+            },
+          },
+
+          // Search berdasarkan setiap kata
+          {
+            AND: keywords.map((keyword) => ({
+              OR: [
+                {
+                  brand: {
+                    brand_name: {
+                      contains: keyword,
+                    },
+                  },
+                },
+                {
+                  product_name: {
+                    contains: keyword,
+                  },
+                },
+              ],
+            })),
+          },
         ],
       }
-      : {};
+      : {
+        is_active: true,
+      };
 
     if (isActiveParam !== null && isActiveParam !== undefined) {
       where.is_active = isActiveParam == "true";
@@ -84,18 +126,18 @@ export async function POST(req: NextRequest) {
     const normalizedName = product_name.trim().toUpperCase();
     let normalizedCode = product_code?.trim().toUpperCase() || '';
 
-    if (!normalizedCode) {
-      const count = await prisma.m_product.count();
-      normalizedCode = `PRD${(count + 1).toString().padStart(5, '0')}`;
-    }
+    // if (!normalizedCode) {
+    //   const count = await prisma.m_product.count();
+    //   normalizedCode = `PRD${(count + 1).toString().padStart(5, '0')}`;
+    // }
 
-    const existing = await prisma.m_product.findUnique({
-      where: { product_code: normalizedCode },
-    });
+    // const existing = await prisma.m_product.findUnique({
+    //   where: { product_code: normalizedCode },
+    // });
 
-    if (existing) {
-      return NextResponse.json({ message: 'Kode produk sudah terdaftar' }, { status: 400 });
-    }
+    // if (existing) {
+    //   return NextResponse.json({ message: 'Kode produk sudah terdaftar' }, { status: 400 });
+    // }
 
     const cleanString = (val: string | undefined | null) => {
       if (!val) return null;

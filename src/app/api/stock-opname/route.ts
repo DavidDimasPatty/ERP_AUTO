@@ -72,9 +72,13 @@ export async function POST(req: NextRequest) {
         // Skip if no change
         if (adjustment === 0) continue;
 
-        await tx.m_product_stock.update({
+        await tx.m_product_stock.upsert({
           where: { product_id: item.product_id },
-          data: { stock_quantity: item.counted_quantity },
+          update: { stock_quantity: item.counted_quantity },
+          create: {
+            product_id: item.product_id,
+            stock_quantity: item.counted_quantity,
+          },
         });
 
         await tx.t_stock_movement.create({

@@ -5,6 +5,7 @@ import Swal from 'sweetalert2';
 import AsyncSearchableSelect, { AsyncSelectOption } from '@/components/AsyncSearchableSelect';
 import SearchableSelect from '@/components/SearchableSelect';
 
+
 export default function SalesTransactionPage() {
   const [activeTab, setActiveTab] = useState('ECERAN');
 
@@ -20,6 +21,7 @@ export default function SalesTransactionPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [selectedPriceLevel, setSelectedPriceLevel] = useState('1');
+  const [customPrice, setCustomPrice] = useState('');
 
   // Payment State
   const [paymentMethod, setPaymentMethod] = useState('CASH');
@@ -63,9 +65,8 @@ export default function SalesTransactionPage() {
     const res = await fetch(`/api/master/product?${params}`);
     const data = await res.json();
     const opts: AsyncSelectOption[] = (data.data || []).map((p: any) => {
-      // Cache product data untuk dipakai saat add to cart
       setProductsCache(prev => ({ ...prev, [p.product_id.toString()]: p }));
-      return { value: p.product_id.toString(), label: `${p.product_code} - ${p.product_name}` };
+      return { value: p.product_id.toString(), label: `${p.product_code} - ${p.product_name} - ${p.brand?.brand_name}` };
     });
     return opts;
   }, []);
@@ -132,8 +133,24 @@ export default function SalesTransactionPage() {
 
   const currentProductPrice = selectedProduct ? (selectedProduct.priceMap[parseInt(selectedPriceLevel)] || 0) : 0;
 
+  useEffect(() => {
+    setCustomPrice(currentProductPrice.toString());
+  }, [currentProductPrice]);
+
   const handleAddToCart = async () => {
     if (!selectedProduct) return;
+
+    const finalPrice = parseInt(customPrice || '0');
+    const level1Price = selectedProduct.cost_price || 0;
+
+    if (finalPrice < level1Price) {
+      await Swal.fire({
+        icon: 'error',
+        title: 'Harga Terlalu Rendah',
+        text: `Harga tidak boleh kurang dari harga Pokok (Rp ${level1Price.toLocaleString('id-ID')}).`,
+      });
+      return;
+    }
 
     const confirmAdd = await Swal.fire({
       title: 'Konfirmasi',
@@ -162,10 +179,11 @@ export default function SalesTransactionPage() {
         unit: selectedProduct.unitName,
         price_level_id: parseInt(selectedPriceLevel),
         price_level_name: `Harga ${selectedPriceLevel}`,
-        unit_price: currentProductPrice,
+        unit_price: finalPrice,
+        min_price: level1Price,
         quantity: 1,
-        line_total: currentProductPrice,
-        is_loose: false
+        line_total: finalPrice,
+        // is_loose: false
       }]);
     }
 
@@ -173,21 +191,53 @@ export default function SalesTransactionPage() {
     setSearchQuery('');
   };
 
-  const updateCartQty = (index: number, val: string) => {
+  const updateCartQty = (productId: number, val: string) => {
     const qty = parseInt(val) || 0;
     const newCart = [...cart];
+    const index = newCart.findIndex(c => c.product_id === productId);
+    if (index === -1) return;
     newCart[index].quantity = qty;
     newCart[index].line_total = qty * newCart[index].unit_price;
     setCart(newCart);
   };
 
-  const toggleLooseItem = (index: number) => {
+  const updateCartPrice = (productId: number, val: string) => {
+    const raw = val.replace(/\D/g, "");
+    const price = parseInt(raw) || 0;
     const newCart = [...cart];
+    const index = newCart.findIndex(c => c.product_id === productId);
+    if (index === -1) return;
+    newCart[index].unit_price = price;
+    newCart[index].line_total = price * newCart[index].quantity;
+    setCart(newCart);
+  };
+
+  const validateCartPrice = async (productId: number) => {
+    const newCart = [...cart];
+    const index = newCart.findIndex(c => c.product_id === productId);
+    if (index === -1) return;
+    const item = newCart[index];
+    if (item.unit_price < item.min_price) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Batas Minimum',
+        text: `Harga ${item.product_name} tidak boleh di bawah batas minimum (Rp ${item.min_price.toLocaleString('id-ID')}). Harga dikembalikan ke harga produk.`,
+      });
+      item.unit_price = item.min_price;
+      item.line_total = item.unit_price * item.quantity;
+      setCart(newCart);
+    }
+  };
+
+  const toggleLooseItem = (productId: number) => {
+    const newCart = [...cart];
+    const index = newCart.findIndex(c => c.product_id === productId);
+    if (index === -1) return;
     newCart[index].is_loose = !newCart[index].is_loose;
     setCart(newCart);
   };
 
-  const removeCartItem = async (index: number) => {
+  const removeCartItem = async (productId: number) => {
     const confirmRemove = await Swal.fire({
       title: 'Konfirmasi',
       text: 'Hapus item ini dari keranjang?',
@@ -200,6 +250,8 @@ export default function SalesTransactionPage() {
     if (!confirmRemove.isConfirmed) return;
 
     const newCart = [...cart];
+    const index = newCart.findIndex(c => c.product_id === productId);
+    if (index === -1) return;
     newCart.splice(index, 1);
     setCart(newCart);
   };
@@ -235,14 +287,14 @@ export default function SalesTransactionPage() {
     }
 
     const tAmount = parseInt(tenderedAmount || '0');
-    if (paymentMethod === 'CASH' && tAmount < totalAmount) {
-      setErrorMsg(`Uang diterima (Rp ${tAmount.toLocaleString('id-ID')}) kurang dari total tagihan (Rp ${totalAmount.toLocaleString('id-ID')}).`);
-      return;
-    }
-    if (paymentMethod !== 'CASH' && tAmount !== totalAmount) {
-      setErrorMsg(`Untuk non-tunai, jumlah uang diterima harus pas Rp ${totalAmount.toLocaleString('id-ID')}.`);
-      return;
-    }
+    // if (paymentMethod === 'CASH' && tAmount < totalAmount) {
+    //   setErrorMsg(`Uang diterima (Rp ${tAmount.toLocaleString('id-ID')}) kurang dari total tagihan (Rp ${totalAmount.toLocaleString('id-ID')}).`);
+    //   return;
+    // }
+    // if (paymentMethod !== 'CASH' && tAmount !== totalAmount) {
+    //   setErrorMsg(`Untuk non-tunai, jumlah uang diterima harus pas Rp ${totalAmount.toLocaleString('id-ID')}.`);
+    //   return;
+    // }
 
     setIsLoading(true);
 
@@ -260,7 +312,7 @@ export default function SalesTransactionPage() {
         price_level_id: c.price_level_id,
         quantity: c.quantity,
         unit_price: c.unit_price,
-        is_loose: c.is_loose || false
+        // is_loose: c.is_loose || false
       }))
     };
 
@@ -290,7 +342,7 @@ export default function SalesTransactionPage() {
       setNotes('');
       setActiveTab("ECERAN");
       setSelectedPriceLevel("1");
-      setPaymentMethod("");
+      setPaymentMethod("CASH");
     } catch (err: any) {
       setErrorMsg(err.message);
     } finally {
@@ -306,8 +358,8 @@ export default function SalesTransactionPage() {
         <style jsx global>{`
         @media print {
           @page {
-            size: landscape;
-            margin: 5mm;
+            size: 9.5in 11in;
+            margin: 4mm 10mm;
           }
 
           /* display:none truly removes element from layout flow (unlike visibility:hidden)
@@ -325,27 +377,32 @@ export default function SalesTransactionPage() {
 
           /* Receipt is now OUTSIDE .sales-main-content — show it in normal flow */
           .receipt-print-area {
-          font-family: "Courier New", monospace !important;
+            font-family: "Courier New", Courier, monospace !important;
             display: block !important;
             position: absolute !important;
-            left:0 !important;
+            left: 0 !important;
             top: 0 !important;
             width: 100% !important;
+            max-width: 9.5in !important;
             height: auto !important;
             overflow: visible !important;
             background: #fff !important;
             color: #000 !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
           }
 
           .receipt-print-area table {
             width: 100% !important;
             border-collapse: collapse !important;
             table-layout: auto !important;
+            margin-top: 10px !important;
+            margin-bottom: 10px !important;
           }
           .receipt-print-area th,
           .receipt-print-area td {
             border: 1px solid #000 !important;
-            padding: 0.35rem !important;
+            padding: 4px 8px !important;
             font-size: 12px !important;
             white-space: normal !important;
             word-break: break-word !important;
@@ -381,33 +438,47 @@ export default function SalesTransactionPage() {
           </div>
         )}
 
-        {/* Tabs */}
-        {/* <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)' }}>
-        <div style={{ display: 'flex' }}>
-          <button 
-            style={{ 
-              padding: '1rem 1.5rem', background: 'none', border: 'none', 
-              borderBottom: activeTab === 'BENGKEL' ? '3px solid var(--primary)' : '3px solid transparent',
-              color: activeTab === 'BENGKEL' ? 'var(--primary)' : 'var(--text-secondary)',
-              fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', fontSize: '0.85rem'
-            }}
-            onClick={() => setActiveTab('BENGKEL')}
-          >
-            Penjualan Bengkel
-          </button>
-          <button 
-            style={{ 
-              padding: '1rem 1.5rem', background: 'none', border: 'none', 
-              borderBottom: activeTab === 'ECERAN' ? '3px solid var(--primary)' : '3px solid transparent',
-              color: activeTab === 'ECERAN' ? 'var(--primary)' : 'var(--text-secondary)',
-              fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', fontSize: '0.85rem'
-            }}
-            onClick={() => setActiveTab('ECERAN')}
-          >
-            Penjualan Eceran
-          </button>
+        {/* ECERAN ATAU BENGKEL */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)' }}>
+          <div style={{ display: 'flex' }}>
+            <button
+              style={{
+                padding: '1rem 1.5rem', background: 'none', border: 'none',
+                borderBottom: activeTab === 'BENGKEL' ? '3px solid var(--primary)' : '3px solid transparent',
+                color: activeTab === 'BENGKEL' ? 'var(--primary)' : 'var(--text-secondary)',
+                fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', fontSize: '0.85rem'
+              }}
+              onClick={
+                async (e) => {
+                  const nextTab = 'BENGKEL';
+                  const isGeneralCustomer = !selectedCustomer || selectedCustomer === '0';
+                  if (nextTab === 'BENGKEL' && isGeneralCustomer) {
+                    await Swal.fire({
+                      title: "Peringatan",
+                      text: "Penjualan Bengkel membutuhkan customer yang terdaftar.",
+                      icon: "warning",
+                      confirmButtonText: "Close",
+                    });
+                    return;
+                  }
+                  setActiveTab(nextTab);
+                }}
+            >
+              Penjualan Bengkel
+            </button>
+            <button
+              style={{
+                padding: '1rem 1.5rem', background: 'none', border: 'none',
+                borderBottom: activeTab === 'ECERAN' ? '3px solid var(--primary)' : '3px solid transparent',
+                color: activeTab === 'ECERAN' ? 'var(--primary)' : 'var(--text-secondary)',
+                fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', fontSize: '0.85rem'
+              }}
+              onClick={() => setActiveTab('ECERAN')}
+            >
+              Penjualan Eceran
+            </button>
+          </div>
         </div>
-      </div> */}
 
         {/* Informasi Transaksi Card */}
         <div className="card" style={{ padding: '1.5rem' }}>
@@ -453,8 +524,8 @@ export default function SalesTransactionPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div>
                 <label className="form-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Jenis Penjualan</label>
-                {/* <span className="badge" style={{ background: 'rgba(99,102,241,0.1)', color: 'var(--primary)', padding: '0.4rem 0.8rem' }}>{activeTab}</span> */}
-                <input onChange={
+                <span className="badge" style={{ background: 'rgba(99,102,241,0.1)', color: 'var(--primary)', padding: '0.4rem 0.8rem' }}>{activeTab}</span>
+                {/* <input onChange={
                   async (e) => {
                     const nextTab = e.target.value;
                     const isGeneralCustomer = !selectedCustomer || selectedCustomer === '0';
@@ -470,7 +541,7 @@ export default function SalesTransactionPage() {
                     setActiveTab(nextTab);
                   }
                 } value="BENGKEL" type='radio' className='jenis' name='jenis' checked={activeTab === "BENGKEL"} /> <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem' }}>Penjualan Bengkel</span>
-                <input onChange={(e) => setActiveTab(e.target.value)} value="ECERAN" checked={activeTab === "ECERAN"} type='radio' style={{ marginLeft: '1rem' }} name='jenis' /> <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem' }}>Penjualan Eceran</span>
+                <input onChange={(e) => setActiveTab(e.target.value)} value="ECERAN" checked={activeTab === "ECERAN"} type='radio' style={{ marginLeft: '1rem' }} name='jenis' /> <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem' }}>Penjualan Eceran</span> */}
               </div>
             </div>
 
@@ -520,7 +591,18 @@ export default function SalesTransactionPage() {
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem' }}>Harga</label>
-                  <input type="text" className="form-input" value={selectedProduct ? currentProductPrice.toLocaleString('id-ID') : '0'} readOnly style={{ background: 'var(--bg-primary)', padding: '0.5rem' }} />
+                  <input
+                    type="text"
+                    className="form-input"
+                    inputMode="numeric"
+                    value={customPrice === "" ? "" : Number(customPrice).toLocaleString('id-ID')}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, "");
+                      setCustomPrice(raw);
+                    }}
+                    disabled={!selectedProduct}
+                    style={{ background: 'var(--bg-primary)', padding: '0.5rem' }}
+                  />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem' }}>Satuan</label>
@@ -544,54 +626,75 @@ export default function SalesTransactionPage() {
             {/* Daftar Produk Card */}
             <div className="card" style={{ padding: '1.5rem', paddingBottom: 0 }}>
               <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Keranjang Belanja</h3>
-              <div className="table-container" style={{ border: 'none', borderRadius: 0, borderBottom: '1px solid var(--border-color)' }}>
-                <table className="table" style={{ borderBottom: 'none' }}>
-                  <thead>
-                    <tr style={{ background: 'transparent' }}>
-                      <th style={{ background: 'transparent', padding: '0.75rem 0.5rem' }}>No</th>
-                      <th style={{ background: 'transparent', padding: '0.75rem 0.5rem' }}>Produk</th>
-                      <th style={{ background: 'transparent', padding: '0.75rem 0.5rem' }}>Level</th>
-                      <th style={{ background: 'transparent', padding: '0.75rem 0.5rem', textAlign: 'right' }}>Harga</th>
-                      <th style={{ background: 'transparent', padding: '0.75rem 0.5rem', textAlign: 'center' }}>Jumlah</th>
-                      <th style={{ background: 'transparent', padding: '0.75rem 0.5rem', textAlign: 'right' }}>Total</th>
-                      <th style={{ background: 'transparent', padding: '0.75rem 0.5rem' }}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cart.length === 0 && (
+              <div className="table-container" style={{ border: 'none', borderRadius: 0, borderBottom: '1px solid var(--border-color)', minHeight: '200px' }}>
+                {cart.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Keranjang masih kosong</div>
+                ) : (
+                  <table className="table display">
+                    <thead>
                       <tr>
-                        <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Keranjang masih kosong</td>
+                        <th>Produk</th>
+                        <th>Level</th>
+                        <th style={{ textAlign: 'right' }}>Harga</th>
+                        <th style={{ textAlign: 'center' }}>Jumlah</th>
+                        <th style={{ textAlign: 'right' }}>Total</th>
+                        <th style={{ textAlign: 'right' }}>Aksi</th>
                       </tr>
-                    )}
-                    {cart.map((item, index) => (
-                      <tr key={index}>
-                        <td style={{ padding: '0.75rem 0.5rem' }}>{index + 1}</td>
-                        <td style={{ padding: '0.75rem 0.5rem' }}>
-                          <div style={{ fontWeight: 600 }}>{item.product_code}</div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{item.product_name}</div>
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem' }}><span className="badge" style={{ background: 'rgba(99,102,241,0.1)', color: 'var(--primary)' }}>{item.price_level_name}</span></td>
-                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>{item.unit_price.toLocaleString('id-ID')}</td>
-                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
-                          <input type="text" className="form-input" value={item.quantity}
-                            onChange={(e) => updateCartQty(index, e.target.value)}
-                            style={{ width: '60px', padding: '0.4rem', textAlign: 'center' }} min="1" />
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 600 }}>{item.line_total.toLocaleString('id-ID')}</td>
-                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>
-                          <button
-                            className={`btn ${item.is_loose ? 'btn-success' : 'btn-secondary'}`}
-                            style={{ padding: '0.25rem 0.5rem', marginRight: '0.35rem' }}
-                            onClick={() => toggleLooseItem(index)}
-                          >
-                            {item.is_loose ? 'Lepas' : 'Stok'}
-                          </button>
-                          <button className="btn btn-danger" style={{ padding: '0.25rem 0.5rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.2)' }} onClick={() => removeCartItem(index)}>🗑️</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {cart.map((rowData) => (
+                        <tr key={rowData.product_id}>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>{rowData.product_code}</div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{rowData.product_name}</div>
+                          </td>
+                          <td>
+                            <span className="badge" style={{ background: 'rgba(99,102,241,0.1)', color: 'var(--primary)' }}>{rowData.price_level_name}</span>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <input
+                              type="text"
+                              className="form-input"
+                              value={rowData.unit_price === 0 ? '' : rowData.unit_price.toLocaleString('id-ID')}
+                              onChange={(e) => updateCartPrice(rowData.product_id, e.target.value)}
+                              onBlur={() => validateCartPrice(rowData.product_id)}
+                              style={{ width: '100px', padding: '0.4rem', textAlign: 'right' }}
+                            />
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <input
+                              type="text"
+                              className="form-input"
+                              value={rowData.quantity}
+                              onChange={(e) => updateCartQty(rowData.product_id, e.target.value)}
+                              style={{ width: '60px', padding: '0.4rem', textAlign: 'center' }}
+                              min="1"
+                            />
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                            {rowData.line_total.toLocaleString('id-ID')}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            {/* <button
+                              className={`btn ${rowData.is_loose ? 'btn-success' : 'btn-secondary'}`}
+                              style={{ padding: '0.25rem 0.5rem', marginRight: '0.35rem' }}
+                              onClick={() => toggleLooseItem(rowData.product_id)}
+                            >
+                              {rowData.is_loose ? 'Lepas' : 'Stok'}
+                            </button> */}
+                            <button
+                              className="btn btn-danger"
+                              style={{ padding: '0.25rem 0.5rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+                              onClick={() => removeCartItem(rowData.product_id)}
+                            >
+                              🗑️
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem 0' }}>

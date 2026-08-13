@@ -3,47 +3,61 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import Swal from 'sweetalert2';
 
-interface ProductOption {
+interface ProductRow {
   product_id: number;
   product_code: string;
   product_name: string;
-  stock?: { stock_quantity: number };
+  brand_name?: string | null;
+  stock_quantity: number;
 }
 
-interface OpnameEntry {
-  product_id: number;
-  counted_quantity: number;
+interface OpnameEdit {
+  counted_quantity: string;
   notes: string;
+  product_code: string;
+  product_name: string;
+  current_stock: number;
 }
+
+const PAGE_SIZE = 50;
 
 export default function StockOpnamePage() {
-  const [products, setProducts] = useState<ProductOption[]>([]);
-  const [search, setSearch] = useState('');
-  const [total, setTotal] = useState(0);
-  const [sortKey, setSortKey] = useState<'product_code' | 'product_name' | 'stock_quantity' | null>('product_code');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [products, setProducts] = useState<ProductRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 10;
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
 
   // Batch edits: keyed by product_id
-  const [opnameEdits, setOpnameEdits] = useState<Record<number, { counted_quantity: string; notes: string }>>({});
+  const [opnameEdits, setOpnameEdits] = useState<Record<number, OpnameEdit>>({});
   const [globalNotes, setGlobalNotes] = useState('');
 
-  const fetchProducts = useCallback(async (searchQuery: string, page: number) => {
+  // Debounce search input — 400ms
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSearchChange = (val: string) => {
+    setSearchTerm(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setPage(1);
+      setDebouncedSearch(val);
+    }, 400);
+  };
+
+  const fetchProducts = useCallback(async (search: string, pg: number) => {
+    setLoading(true);
     try {
-      setLoading(true);
       const params = new URLSearchParams({
-        is_active: 'true',
-        page: page.toString(),
-        limit: rowsPerPage.toString(),
+        search,
+        page: String(pg),
+        limit: String(PAGE_SIZE),
       });
-      if (searchQuery) params.set('search', searchQuery);
-      const res = await fetch(`/api/master/product?${params}`);
+      const res = await fetch(`/api/stock-opname/products?${params}`);
       const json = await res.json();
       if (res.ok) {
         setProducts(json.data || []);
+        setTotalPages(json.pagination?.totalPages ?? 1);
         setTotal(json.pagination?.total ?? 0);
       }
     } catch (error) {
@@ -51,90 +65,55 @@ export default function StockOpnamePage() {
     } finally {
       setLoading(false);
     }
-  }, [rowsPerPage]);
+  }, []);
 
-  // Fetch saat halaman pertama dibuka
   useEffect(() => {
-    fetchProducts('', 1);
-  }, [fetchProducts]);
+    fetchProducts(debouncedSearch, page);
+  }, [fetchProducts, debouncedSearch, page]);
 
-  // Debounce search: fetch saat user berhenti mengetik
-  const handleSearchChange = (val: string) => {
-    setSearch(val);
-    setCurrentPage(1);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      fetchProducts(val, 1);
-    }, 350);
-  };
+  // ── Edit handlers ──────────────────────────────────────────────
 
-  // Fetch saat ganti halaman
-  useEffect(() => {
-    fetchProducts(search, currentPage);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage]);
-
-  // Sorting dilakukan client-side atas data satu halaman yang sudah di-fetch
-  const filteredProducts = useMemo(() => {
-    if (!sortKey) return products;
-    return [...products].sort((a, b) => {
-      const aValue =
-        sortKey === 'stock_quantity'
-          ? a.stock?.stock_quantity ?? 0
-          : (a as any)[sortKey] ?? '';
-      const bValue =
-        sortKey === 'stock_quantity'
-          ? b.stock?.stock_quantity ?? 0
-          : (b as any)[sortKey] ?? '';
-
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
-      }
-
-      return sortOrder === 'asc'
-        ? String(aValue).localeCompare(String(bValue))
-        : String(bValue).localeCompare(String(aValue));
-    });
-  }, [products, sortKey, sortOrder]);
-
-  const totalPages = Math.max(1, Math.ceil(total / rowsPerPage));
-  const paginatedProducts = filteredProducts;
-
-  const sortIndicator = (key: 'product_code' | 'product_name' | 'stock_quantity') =>
-    sortKey === key ? (sortOrder === 'asc' ? '▲' : '▼') : '';
-
-  const handleSort = (key: 'product_code' | 'product_name' | 'stock_quantity') => {
-    if (sortKey === key) {
-      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-      return;
-    }
-
-    setSortKey(key);
-    setSortOrder('asc');
-  };
-
-  const handleEditQuantity = (productId: number, value: string) => {
+  const handleEditQuantity = (row: ProductRow, value: string) => {
+    const { product_id, product_code, product_name, stock_quantity } = row;
     setOpnameEdits((prev) => {
-      const existing = prev[productId] || { counted_quantity: '', notes: '' };
-      // If emptied, remove from edits
-      if (value === '' && !existing.notes) {
+      const existing = prev[product_id];
+      if (value === '' && (!existing || !existing.notes)) {
         const next = { ...prev };
-        delete next[productId];
+        delete next[product_id];
         return next;
       }
-      return { ...prev, [productId]: { ...existing, counted_quantity: value } };
+      return {
+        ...prev,
+        [product_id]: {
+          counted_quantity: value,
+          notes: existing?.notes ?? '',
+          product_code: existing?.product_code ?? product_code,
+          product_name: existing?.product_name ?? product_name,
+          current_stock: existing?.current_stock ?? stock_quantity,
+        },
+      };
     });
   };
 
-  const handleEditNotes = (productId: number, value: string) => {
+  const handleEditNotes = (row: ProductRow, value: string) => {
+    const { product_id, product_code, product_name, stock_quantity } = row;
     setOpnameEdits((prev) => {
-      const existing = prev[productId] || { counted_quantity: '', notes: '' };
-      if (value === '' && !existing.counted_quantity) {
+      const existing = prev[product_id];
+      if (value === '' && (!existing || !existing.counted_quantity)) {
         const next = { ...prev };
-        delete next[productId];
+        delete next[product_id];
         return next;
       }
-      return { ...prev, [productId]: { ...existing, notes: value } };
+      return {
+        ...prev,
+        [product_id]: {
+          counted_quantity: existing?.counted_quantity ?? '',
+          notes: value,
+          product_code: existing?.product_code ?? product_code,
+          product_name: existing?.product_name ?? product_name,
+          current_stock: existing?.current_stock ?? stock_quantity,
+        },
+      };
     });
   };
 
@@ -151,28 +130,36 @@ export default function StockOpnamePage() {
     setGlobalNotes('');
   };
 
-  // Get pending edits with actual changes
+  // ── Pending items ──────────────────────────────────────────────
+
   const pendingItems = useMemo(() => {
-    const items: (OpnameEntry & { product_code: string; product_name: string; current_stock: number; diff: number })[] = [];
+    const items: {
+      product_id: number;
+      counted_quantity: number;
+      notes: string;
+      product_code: string;
+      product_name: string;
+      current_stock: number;
+      diff: number;
+    }[] = [];
     for (const [pidStr, edit] of Object.entries(opnameEdits)) {
       const pid = Number(pidStr);
       const counted = Number(edit.counted_quantity);
       if (edit.counted_quantity === '' || Number.isNaN(counted)) continue;
-      const product = products.find((p) => p.product_id === pid);
-      if (!product) continue;
-      const currentStock = product.stock?.stock_quantity ?? 0;
       items.push({
         product_id: pid,
         counted_quantity: counted,
         notes: edit.notes || globalNotes,
-        product_code: product.product_code,
-        product_name: product.product_name,
-        current_stock: currentStock,
-        diff: counted - currentStock,
+        product_code: edit.product_code,
+        product_name: edit.product_name,
+        current_stock: edit.current_stock,
+        diff: counted - edit.current_stock,
       });
     }
     return items;
-  }, [opnameEdits, products, globalNotes]);
+  }, [opnameEdits, globalNotes]);
+
+  // ── Submit ─────────────────────────────────────────────────────
 
   const handleSubmit = async () => {
     if (pendingItems.length === 0) {
@@ -188,7 +175,6 @@ export default function StockOpnamePage() {
       confirmButtonText: 'Ya, Simpan',
       cancelButtonText: 'Batal',
     });
-
     if (!confirm.isConfirmed) return;
 
     setLoading(true);
@@ -204,22 +190,21 @@ export default function StockOpnamePage() {
           })),
         }),
       });
-
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Gagal menyimpan stock opname');
-      }
+      if (!res.ok) throw new Error(data.message || 'Gagal menyimpan stock opname');
 
       await Swal.fire({ icon: 'success', title: 'Berhasil', text: data.message || 'Stock opname berhasil disimpan' });
       setOpnameEdits({});
       setGlobalNotes('');
-      fetchProducts(search, currentPage);
+      fetchProducts(debouncedSearch, page);
     } catch (error: any) {
       await Swal.fire({ icon: 'error', title: 'Gagal', text: error.message || 'Terjadi kesalahan' });
     } finally {
       setLoading(false);
     }
   };
+
+  // ── Render ─────────────────────────────────────────────────────
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -231,131 +216,142 @@ export default function StockOpnamePage() {
       </div>
 
       {/* Main Table Card */}
-      <div className="card" style={{ padding: '1.25rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-          <div>
-            <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Data Produk</h3>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Total {total} produk{search ? ` (filter: "${search}")` : ''}
+      <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
+        <div className="table-container" style={{ padding: '1rem' }}>
+
+          {/* Toolbar: search + info */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Cari kode, nama produk, atau brand..."
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              style={{ width: "50%" }}
+            />
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+              {loading ? 'Memuat...' : `${total.toLocaleString('id-ID')} produk ditemukan`}
             </span>
+            {Object.keys(opnameEdits).length > 0 && (
+              <span
+                className="badge"
+                style={{ background: 'var(--primary)', color: '#fff', fontSize: '0.78rem', marginLeft: 'auto' }}
+              >
+                {Object.keys(opnameEdits).length} produk diubah
+              </span>
+            )}
           </div>
-          <input
-            className="form-input"
-            value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Cari kode atau nama produk..."
-            style={{ width: '300px' }}
-          />
-        </div>
 
-        <div className="table-container" style={{ border: 'none' }}>
-          <table className="table" style={{ minWidth: '800px' }}>
-            <thead>
-              <tr>
-                <th style={{ width: '3.5rem' }}>No</th>
-                <th onClick={() => handleSort('product_code')} style={{ cursor: 'pointer' }}>
-                  Kode {sortIndicator('product_code')}
-                </th>
-                <th onClick={() => handleSort('product_name')} style={{ cursor: 'pointer' }}>
-                  Nama Produk {sortIndicator('product_name')}
-                </th>
-                <th onClick={() => handleSort('stock_quantity')} style={{ cursor: 'pointer', width: '7rem', textAlign: 'center' }}>
-                  Stok Sistem {sortIndicator('stock_quantity')}
-                </th>
-                <th style={{ width: '8rem', textAlign: 'center' }}>Revisi</th>
-                <th style={{ width: '6rem', textAlign: 'center' }}>Selisih</th>
-                <th style={{ width: '12rem' }}>Catatan</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedProducts.length === 0 ? (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="table display" style={{ minWidth: '700px' }}>
+              <thead>
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
-                    Tidak ada produk yang cocok
-                  </td>
+                  <th style={{ width: '130px' }}>Kode Produk</th>
+                  <th>Nama Produk</th>
+                  <th>Brand</th>
+                  <th style={{ textAlign: 'center', width: '110px' }}>Stok Sistem</th>
+                  <th style={{ textAlign: 'center', width: '130px' }}>Revisi</th>
+                  <th style={{ textAlign: 'center', width: '90px' }}>Selisih</th>
+                  <th>Catatan</th>
                 </tr>
-              ) : (
-                paginatedProducts.map((product, index) => {
-                  const edit = opnameEdits[product.product_id];
-                  const currentStock = product.stock?.stock_quantity ?? 0;
-                  const countedVal = edit?.counted_quantity ?? '';
-                  const counted = Number(countedVal);
-                  const hasEdit = countedVal !== '' && !Number.isNaN(counted);
-                  const diff = hasEdit ? counted - currentStock : null;
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                      Memuat data...
+                    </td>
+                  </tr>
+                ) : products.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                      Tidak ada produk ditemukan.
+                    </td>
+                  </tr>
+                ) : (
+                  products.map((row) => {
+                    const edit = opnameEdits[row.product_id];
+                    // Use current_stock from edit (captured at edit time) or live stock
+                    const currentStock = edit?.current_stock ?? row.stock_quantity;
+                    const countedVal = edit?.counted_quantity ?? '';
+                    const counted = Number(countedVal);
+                    const hasEdit = countedVal !== '' && !Number.isNaN(counted);
+                    const diff = hasEdit ? counted - currentStock : null;
 
-                  return (
-                    <tr
-                      key={product.product_id}
-                      style={{
-                        background: hasEdit ? 'rgba(99,102,241,0.06)' : undefined,
-                      }}
-                    >
-                      <td>{(currentPage - 1) * rowsPerPage + index + 1}</td>
-                      <td style={{ fontWeight: 700 }}>{product.product_code}</td>
-                      <td>{product.product_name}</td>
-                      <td style={{ textAlign: 'center' }}>{currentStock}</td>
-                      <td style={{ textAlign: 'center', padding: '0.35rem 0.5rem' }}>
-                        <input
-                          type="number"
-                          className="form-input"
-                          min="0"
-                          value={countedVal}
-                          onChange={(e) => handleEditQuantity(product.product_id, e.target.value)}
-                          placeholder="—"
-                          style={{
-                            width: '100%',
-                            textAlign: 'center',
-                            padding: '0.4rem',
-                            fontSize: '0.9rem',
-                          }}
-                        />
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        {diff !== null ? (
-                          <span style={{
-                            fontWeight: 700,
-                            color: diff > 0 ? '#16a34a' : diff < 0 ? '#dc2626' : 'var(--text-muted)',
-                          }}>
-                            {diff > 0 ? `+${diff}` : diff}
-                          </span>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)' }}>—</span>
-                        )}
-                      </td>
-                      <td style={{ padding: '0.35rem 0.5rem' }}>
-                        <input
-                          type="text"
-                          className="form-input"
-                          value={edit?.notes ?? ''}
-                          onChange={(e) => handleEditNotes(product.product_id, e.target.value)}
-                          placeholder="Opsional"
-                          style={{
-                            width: '100%',
-                            padding: '0.4rem',
-                            fontSize: '0.85rem',
-                          }}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ color: 'var(--text-muted)' }}>
-            Menampilkan {paginatedProducts.length} dari {filteredProducts.length} data
+                    return (
+                      <tr
+                        key={row.product_id}
+                        style={hasEdit ? { background: 'rgba(var(--primary-rgb, 99,102,241), 0.06)' } : undefined}
+                      >
+                        <td style={{ fontWeight: hasEdit ? 700 : 400 }}>{row.product_code}</td>
+                        <td>{row.product_name}</td>
+                        <td>{row.brand_name || '-'}</td>
+                        <td style={{ textAlign: 'center' }}>{currentStock.toLocaleString('id-ID')}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <input
+                            type="number"
+                            className="form-input"
+                            min="0"
+                            value={countedVal}
+                            onChange={(e) => handleEditQuantity(row, e.target.value)}
+                            placeholder="—"
+                            style={{ width: '100%', textAlign: 'center', padding: '0.35rem 0.5rem', fontSize: '0.9rem' }}
+                          />
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          {diff !== null ? (
+                            <span style={{
+                              fontWeight: 700,
+                              color: diff > 0 ? '#16a34a' : diff < 0 ? '#dc2626' : 'var(--text-muted)',
+                            }}>
+                              {diff > 0 ? `+${diff}` : diff}
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)' }}>—</span>
+                          )}
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            className="form-input"
+                            value={edit?.notes ?? ''}
+                            onChange={(e) => handleEditNotes(row, e.target.value)}
+                            placeholder="Opsional"
+                            style={{ width: '100%', padding: '0.35rem 0.5rem', fontSize: '0.85rem' }}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button className="btn btn-secondary" disabled={currentPage === 1} onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}>
-              Sebelumnya
-            </button>
-            <span style={{ alignSelf: 'center' }}>Halaman {currentPage} dari {totalPages}</span>
-            <button className="btn btn-secondary" disabled={currentPage === totalPages} onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}>
-              Berikutnya
-            </button>
-          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.5rem', marginTop: '0.75rem' }}>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                Halaman {page} / {totalPages}
+              </span>
+              <button
+                className="btn btn-secondary"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                style={{ padding: '0.3rem 0.7rem', fontSize: '0.82rem' }}
+              >
+                ‹ Prev
+              </button>
+              <button
+                className="btn btn-secondary"
+                disabled={page >= totalPages || loading}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                style={{ padding: '0.3rem 0.7rem', fontSize: '0.82rem' }}
+              >
+                Next ›
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -403,8 +399,8 @@ export default function StockOpnamePage() {
                       <td>{idx + 1}</td>
                       <td style={{ fontWeight: 700 }}>{item.product_code}</td>
                       <td>{item.product_name}</td>
-                      <td style={{ textAlign: 'center' }}>{item.current_stock}</td>
-                      <td style={{ textAlign: 'center', fontWeight: 700 }}>{item.counted_quantity}</td>
+                      <td style={{ textAlign: 'center' }}>{item.current_stock.toLocaleString('id-ID')}</td>
+                      <td style={{ textAlign: 'center', fontWeight: 700 }}>{item.counted_quantity.toLocaleString('id-ID')}</td>
                       <td style={{ textAlign: 'center' }}>
                         <span style={{
                           fontWeight: 700,
@@ -432,7 +428,9 @@ export default function StockOpnamePage() {
 
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
               <div className="form-group" style={{ marginBottom: 0, flexGrow: 1 }}>
-                <label className="form-label" style={{ fontSize: '0.85rem' }}>Catatan Global (opsional, untuk semua produk tanpa catatan individual)</label>
+                <label className="form-label" style={{ fontSize: '0.85rem' }}>
+                  Catatan Global (opsional, untuk semua produk tanpa catatan individual)
+                </label>
                 <input
                   type="text"
                   className="form-input"

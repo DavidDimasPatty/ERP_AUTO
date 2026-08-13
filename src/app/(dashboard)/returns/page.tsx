@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import SearchableSelect from '@/components/SearchableSelect';
+import DataTableClient from '@/components/DataTableClient';
 
 export default function SalesReturnPage() {
   // Search State
@@ -20,14 +21,11 @@ export default function SalesReturnPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-
   const initializeReturnItems = (data: any) => {
     if (!data?.details) return [];
-
     return data.details.map((d: any) => {
       const prevRet = d.previous_return_quantity || 0;
       const maxRet = d.returnable_quantity ?? (d.sold_quantity - prevRet);
-
       return {
         sales_detail_id: d.sales_detail_id,
         product_id: d.product_id,
@@ -38,28 +36,22 @@ export default function SalesReturnPage() {
         maxReturn: maxRet,
         currentStock: d.current_stock ?? 0,
         returnQty: '',
-        reason: ''
+        reason: '',
       };
     });
   };
 
   const searchSalesNumber = async (salesNumber: string) => {
     if (!salesNumber) return;
-
     setIsSearching(true);
     setErrorMsg('');
     setSuccessMsg('');
     setFoundSales(null);
     setReturnItems([]);
-
     try {
       const res = await fetch(`/api/returns/check-sales/${encodeURIComponent(salesNumber)}`);
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Transaksi tidak ditemukan atau tidak dapat diretur');
-      }
-
+      if (!res.ok) throw new Error(data.message || 'Transaksi tidak ditemukan atau tidak dapat diretur');
       setFoundSales(data);
       setReturnItems(initializeReturnItems(data));
     } catch (err: any) {
@@ -69,10 +61,7 @@ export default function SalesReturnPage() {
     }
   };
 
-  const handleSearch = async () => {
-    await searchSalesNumber(salesNumberQuery);
-  };
-
+  const handleSearch = async () => { await searchSalesNumber(salesNumberQuery); };
 
   const handleSelectSales = async (sale: any) => {
     const salesNumber = sale.sales_number || sale.salesNumber || '';
@@ -80,46 +69,33 @@ export default function SalesReturnPage() {
     await searchSalesNumber(salesNumber);
   };
 
-  const handleReturnQtyChange = (index: number, val: string) => {
-    const newItems = [...returnItems];
-    newItems[index].returnQty = val;
-    setReturnItems(newItems);
+  const handleReturnQtyChange = (salesDetailId: number, val: string) => {
+    setReturnItems((prev) =>
+      prev.map((i) => i.sales_detail_id === salesDetailId ? { ...i, returnQty: val } : i)
+    );
   };
 
-  const handleItemReasonChange = (index: number, val: string) => {
-    const newItems = [...returnItems];
-    newItems[index].reason = val;
-    setReturnItems(newItems);
+  const handleItemReasonChange = (salesDetailId: number, val: string) => {
+    setReturnItems((prev) =>
+      prev.map((i) => i.sales_detail_id === salesDetailId ? { ...i, reason: val } : i)
+    );
   };
 
-  const handleRemoveItem = (index: number) => {
-    const newItems = [...returnItems];
-    newItems[index].returnQty = ''; // just reset it
-    setReturnItems(newItems);
+  const handleRemoveItem = (salesDetailId: number) => {
+    setReturnItems((prev) =>
+      prev.map((i) => i.sales_detail_id === salesDetailId ? { ...i, returnQty: '' } : i)
+    );
   };
 
-  // Calculations
-  const activeReturnItems = returnItems.filter(item => {
-    const qty = parseInt(item.returnQty) || 0;
-    return qty > 0;
-  });
-
+  const activeReturnItems = returnItems.filter((item) => (parseInt(item.returnQty) || 0) > 0);
   const totalTypes = activeReturnItems.length;
   const totalReturnQty = activeReturnItems.reduce((acc, item) => acc + (parseInt(item.returnQty) || 0), 0);
 
   const handleSubmit = async () => {
     setErrorMsg('');
     setSuccessMsg('');
-
-    if (!foundSales) {
-      setErrorMsg('Cari dan pilih transaksi penjualan terlebih dahulu.');
-      return;
-    }
-
-    if (activeReturnItems.length === 0) {
-      setErrorMsg('Tentukan jumlah retur untuk minimal 1 produk.');
-      return;
-    }
+    if (!foundSales) { setErrorMsg('Cari dan pilih transaksi penjualan terlebih dahulu.'); return; }
+    if (activeReturnItems.length === 0) { setErrorMsg('Tentukan jumlah retur untuk minimal 1 produk.'); return; }
 
     const confirmSubmit = await Swal.fire({
       title: 'Konfirmasi',
@@ -129,10 +105,8 @@ export default function SalesReturnPage() {
       confirmButtonText: 'Ya, simpan',
       cancelButtonText: 'Batal',
     });
-
     if (!confirmSubmit.isConfirmed) return;
 
-    // Validate max bounds
     for (const item of activeReturnItems) {
       const q = parseInt(item.returnQty);
       if (q > item.maxReturn) {
@@ -142,39 +116,31 @@ export default function SalesReturnPage() {
     }
 
     setIsLoading(true);
-
     const payload = {
       sales_id: foundSales.sales_id,
       return_reason: returnReason,
-      notes: notes,
-      details: activeReturnItems.map(item => ({
+      notes,
+      details: activeReturnItems.map((item) => ({
         sales_detail_id: item.sales_detail_id,
         product_id: item.product_id,
         return_quantity: parseInt(item.returnQty),
-        return_reason: item.reason || returnReason
-      }))
+        return_reason: item.reason || returnReason,
+      })),
     };
 
     try {
       const res = await fetch('/api/returns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
-
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Gagal memproses retur penjualan');
-      }
-
+      if (!res.ok) throw new Error(data.message || 'Gagal memproses retur penjualan');
       setSuccessMsg(`Retur berhasil disimpan dengan No: ${data.sales_return_number}`);
-      // Reset form
       setFoundSales(null);
       setSalesNumberQuery('');
       setReturnItems([]);
       setNotes('');
-
     } catch (err: any) {
       setErrorMsg(err.message);
     } finally {
@@ -182,126 +148,48 @@ export default function SalesReturnPage() {
     }
   };
 
-
-  //fecth data sales
+  // ── Sales list for selection ──────────────────────────────────
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
-  const [data, setData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 10;
+  const [salesData, setSalesData] = useState<any[]>([]);
+  const [salesLoading, setSalesLoading] = useState(false);
 
-  const reportData = data;
-
-  const getFieldValue = (item: any, key: string) => {
-    switch (key) {
-      case 'sales_number':
-        return item.sales_number || item.salesNumber || '';
-      case 'date':
-        return item.date || item.sales_datetime || '';
-      case 'type':
-        return item.type || item.sales_type || '';
-      case 'customer':
-        return item.customer || item.customer_name || item.customer_name_snapshot || '';
-      case 'cashier':
-        return item.cashier || item.cashier_name || item.cashier_name_snapshot || '';
-      case 'subtotal':
-        return Number(item.subtotal || item.subtotal_amount || item.total_amount || 0);
-      case 'discount':
-        return Number(item.discount || item.discount_amount || 0);
-      case 'total':
-        return Number(item.total || item.total_amount || 0);
-      case 'status':
-        return item.status || item.payment_status || item.transaction_status || '';
-      default:
-        return item[key] || '';
-    }
-  };
-
-  const filteredData = reportData.filter(item => {
-    const term = searchTerm.toLowerCase();
-    return (
-      getFieldValue(item, 'sales_number').toString().toLowerCase().includes(term) ||
-      getFieldValue(item, 'date').toString().toLowerCase().includes(term) ||
-      getFieldValue(item, 'type').toString().toLowerCase().includes(term) ||
-      getFieldValue(item, 'customer').toString().toLowerCase().includes(term) ||
-      getFieldValue(item, 'cashier').toString().toLowerCase().includes(term) ||
-      getFieldValue(item, 'status').toString().toLowerCase().includes(term)
-    );
-  });
-
-  const sortedData = sortKey
-    ? [...filteredData].sort((a, b) => {
-      const aValue = getFieldValue(a, sortKey);
-      const bValue = getFieldValue(b, sortKey);
-
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
-      }
-
-      return sortOrder === 'asc'
-        ? String(aValue).localeCompare(String(bValue), 'id', { numeric: true })
-        : String(bValue).localeCompare(String(aValue), 'id', { numeric: true });
-    })
-    : filteredData;
-
-  const totalPages = Math.max(1, Math.ceil(sortedData.length / rowsPerPage));
-  const paginatedData = sortedData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
-
-  const grandTotal = filteredData.reduce((sum, item) => sum + (Number(getFieldValue(item, 'total')) || 0), 0);
-  const totalSubtotal = filteredData.reduce((sum, item) => sum + (Number(getFieldValue(item, 'subtotal')) || 0), 0);
-  const totalDiscount = filteredData.reduce((sum, item) => sum + (Number(getFieldValue(item, 'discount')) || 0), 0);
-
-  const handleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortKey(key);
-      setSortOrder('asc');
-    }
-  };
-
-  const sortIndicator = (key: string) => (sortKey === key ? (sortOrder === 'asc' ? '▲' : '▼') : '');
+  const dataForTable = salesData.map((item) => ({
+    ...item,
+    // Serialize any Decimal/Date to plain values
+    _sales_number: item.sales_number || '',
+    _date: item.date,
+    _customer: item.customer || '',
+    _cashier: item.cashier || '',
+    _total: Number(item.total || 0),
+  }));
 
   const fetchReport = async () => {
-    setLoading(true);
+    setSalesLoading(true);
     try {
       let url = '/api/laporan/sales';
       const params = new URLSearchParams();
       if (start) params.append('start', start);
       if (end) params.append('end', end);
       if (params.toString()) url += `?${params.toString()}`;
-
       const res = await fetch(url);
       if (res.ok) {
         const json = await res.json();
-        if (Array.isArray(json)) {
-          setData(json);
-        }
+        if (Array.isArray(json)) setSalesData(json);
       }
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      setSalesLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchReport();
-  }, [start, end]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, start, end]);
-
+  useEffect(() => { fetchReport(); }, [start, end]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '2rem' }}>
 
-      {/* Header & Breadcrumb */}
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
@@ -332,93 +220,173 @@ export default function SalesReturnPage() {
       <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         <h3 style={{ fontSize: '1.1rem', color: 'var(--primary)', margin: 0 }}>1. Pilih Transaksi Penjualan</h3>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <label className="form-label" style={{ whiteSpace: 'nowrap', margin: 0 }}>Nomor Transaksi Penjualan</label>
-            <input
-              type="text"
-              className="form-input"
-              value={salesNumberQuery}
-              onChange={(e) => setSalesNumberQuery(e.target.value)}
-              placeholder="Contoh: PJ-20260730-000150"
-              style={{ flexGrow: 1 }}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            />
-            <button className="btn btn-primary" style={{ padding: '0.75rem 1.5rem' }} onClick={handleSearch} disabled={isSearching}>
-              {isSearching ? 'Mencari...' : '🔍 Cari'}
-            </button>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '2rem',
+            alignItems: 'start',
+          }}
+        >
+          {/* KIRI - Nomor transaksi */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label className="form-label" style={{ margin: 0 }}>
+              Nomor Transaksi Penjualan
+            </label>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <input
+                type="text"
+                className="form-input"
+                value={salesNumberQuery}
+                onChange={(e) => setSalesNumberQuery(e.target.value)}
+                placeholder="Contoh: PJ-20260730-000150"
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              />
+
+              <button
+                className="btn btn-primary"
+                style={{
+                  padding: '0.75rem 1.25rem',
+                  whiteSpace: 'nowrap',
+                }}
+                onClick={handleSearch}
+                disabled={isSearching}
+              >
+                {isSearching ? 'Mencari...' : '🔍 Cari'}
+              </button>
+            </div>
           </div>
 
-          {foundSales && (
-            <div style={{ background: 'var(--success-light)', border: '1px solid var(--success)', borderRadius: 'var(--radius-md)', padding: '0.75rem', textAlign: 'center', color: 'var(--success)' }}>
-              <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                <span>✓</span> Transaksi ditemukan
+          {/* KANAN */}
+          {!foundSales ? (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                alignItems: "start",
+                gap: '1rem',
+              }}
+            >
+              <div>
+                <label
+                  className="form-label"
+                  style={{
+                    marginBottom: '0.5rem',
+                    display: 'block',
+                  }}
+                >
+                  Dari Tanggal
+                </label>
+
+                <input
+                  type="date"
+                  className="form-input"
+                  value={start}
+                  onChange={(e) => setStart(e.target.value)}
+                  style={{ width: '100%' }}
+                />
               </div>
-              <div style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>{foundSales.sales_number} - {new Date(foundSales.sales_datetime).toLocaleString('id-ID')}</div>
+
+              <div>
+                <label
+                  className="form-label"
+                  style={{
+                    marginBottom: '0.5rem',
+                    display: 'block',
+                  }}
+                >
+                  Sampai Tanggal
+                </label>
+
+                <input
+                  type="date"
+                  className="form-input"
+                  value={end}
+                  onChange={(e) => setEnd(e.target.value)}
+                  style={{ width: '100%' }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div
+              style={{
+                background: 'var(--success-light)',
+                border: '1px solid var(--success)',
+                borderRadius: 'var(--radius-md)',
+                padding: '0.75rem',
+                textAlign: 'center',
+                color: 'var(--success)',
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                <span>✓</span>
+                Transaksi ditemukan
+              </div>
+
+              <div
+                style={{
+                  fontSize: '0.85rem',
+                  marginTop: '0.25rem',
+                }}
+              >
+                {foundSales.sales_number} -{' '}
+                {new Date(foundSales.sales_datetime).toLocaleString('id-ID')}
+              </div>
             </div>
           )}
         </div>
-
         {!foundSales && (
           <div style={{ display: 'grid', gap: '1rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', flexWrap: 'wrap' }}>
+            {/* <div style={{ display: 'flex', flexDirection: "row", gap: "3rem", marginBottom: '1rem', alignItems: 'start' }}>
               <div>
-                <label className="form-label" style={{ marginBottom: '0.5rem', display: 'block' }}>Dari</label>
+                <label className="form-label" style={{ marginBottom: '0.5rem', display: 'block' }}>Dari Tanggal</label>
                 <input type="date" className="form-input" value={start} onChange={(e) => setStart(e.target.value)} />
               </div>
               <div>
-                <label className="form-label" style={{ marginBottom: '0.5rem', display: 'block' }}>Sampai</label>
+                <label className="form-label" style={{ marginBottom: '0.5rem', display: 'block' }}>Sampai Tanggal</label>
                 <input type="date" className="form-input" value={end} onChange={(e) => setEnd(e.target.value)} />
               </div>
-              <div>
-                <label className="form-label" style={{ marginBottom: '0.5rem', display: 'block' }}>Cari</label>
-                <input style={{ width: "300px" }} type="text" className="form-input" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Cari nomor transaksi / customer" />
-              </div>
-            </div>
+            </div> */}
 
             <div style={{ overflowX: 'auto' }}>
-              <div className="table-container" style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
-                <table className="table" style={{ width: '100%' }}>
-                  <thead>
-                    <tr style={{ background: 'var(--bg-tertiary)' }}>
-                      <th style={{ padding: '1rem', cursor: 'pointer' }} onClick={() => handleSort('sales_number')}>No Transaksi {sortIndicator('sales_number')}</th>
-                      <th style={{ padding: '1rem', cursor: 'pointer' }} onClick={() => handleSort('date')}>Tanggal {sortIndicator('date')}</th>
-                      <th style={{ padding: '1rem' }}>Customer</th>
-                      <th style={{ padding: '1rem' }}>Kasir</th>
-                      <th style={{ padding: '1rem', textAlign: 'right' }}>Total</th>
-                      <th style={{ padding: '1rem' }}>Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedData.map((item, index) => (
-                      <tr key={item.sales_id || index}>
-                        <td style={{ padding: '1rem' }}>{getFieldValue(item, 'sales_number')}</td>
-                        <td style={{ padding: '1rem' }}>{getFieldValue(item, 'date')}</td>
-                        <td style={{ padding: '1rem' }}>{getFieldValue(item, 'customer')}</td>
-                        <td style={{ padding: '1rem' }}>{getFieldValue(item, 'cashier')}</td>
-                        <td style={{ padding: '1rem', textAlign: 'right' }}>Rp {Number(getFieldValue(item, 'total')).toLocaleString('id-ID')}</td>
-                        <td style={{ padding: '1rem' }}>
-                          <button className="btn btn-primary" style={{ padding: '0.5rem 0.75rem' }} onClick={() => handleSelectSales(item)}>
-                            Pilih
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '0.75rem', alignItems: 'center' }}>
-              <div style={{ color: 'var(--text-secondary)' }}>Total transaksi: {filteredData.length}</div>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <button className="btn btn-secondary" style={{ padding: '0.5rem 0.75rem' }} disabled={currentPage === 1} onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}>
-                  Sebelumnya
-                </button>
-                <span style={{ color: 'var(--text-secondary)' }}>{currentPage} / {totalPages}</span>
-                <button className="btn btn-secondary" style={{ padding: '0.5rem 0.75rem' }} disabled={currentPage === totalPages} onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}>
-                  Berikutnya
-                </button>
+              <div className="table-container" style={{ border: 'none', borderRadius: 'var(--radius-md)' }}>
+                {salesLoading ? (
+                  <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Memuat data...</div>
+                ) : (
+                  <DataTableClient
+                    data={dataForTable}
+                    columns={[
+                      { title: 'No Transaksi', data: '_sales_number' },
+                      { title: 'Tanggal', data: '_date' },
+                      { title: 'Customer', data: '_customer' },
+                      { title: 'Kasir', data: '_cashier' },
+                      { title: 'Total', data: null, className: 'text-right' },
+                      { title: 'Aksi', data: null, orderable: false, searchable: false },
+                    ]}
+                    slots={{
+                      4: (_c: any, rowData: any) => `Rp ${Number(rowData._total).toLocaleString('id-ID')}`,
+                      5: (_c: any, rowData: any) => (
+                        <button className="btn btn-primary" style={{ padding: '0.5rem 0.75rem' }} onClick={() => handleSelectSales(rowData)}>
+                          Pilih
+                        </button>
+                      ),
+                    }}
+                    className="display table"
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -458,7 +426,6 @@ export default function SalesReturnPage() {
       {foundSales && (
         <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <h3 style={{ fontSize: '1.1rem', color: 'var(--primary)', margin: 0 }}>2. Informasi Retur</h3>
-
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center' }}>
@@ -473,7 +440,6 @@ export default function SalesReturnPage() {
                 </div>
               </div>
             </div>
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center' }}>
                 <label className="form-label" style={{ margin: 0 }}>Alasan Retur (Umum) <span style={{ color: 'var(--danger)' }}>*</span></label>
@@ -492,69 +458,64 @@ export default function SalesReturnPage() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'flex-start' }}>
                 <label className="form-label" style={{ margin: 0, marginTop: '0.75rem' }}>Catatan</label>
-                <div style={{ width: '100%' }}>
-                  <textarea className="form-input" placeholder="Catatan tambahan (opsional)"
-                    value={notes}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^a-zA-Z0-9\s.,()\-_/]/g, "");
-                      setNotes(value);
-                    }}
-                    style={{ width: '100%', minHeight: '80px', resize: 'vertical' }}></textarea>
-                </div>
+                <textarea
+                  className="form-input"
+                  placeholder="Catatan tambahan (opsional)"
+                  value={notes}
+                  onChange={(e) => { const value = e.target.value.replace(/[^a-zA-Z0-9\s.,()\-_/]/g, ''); setNotes(value); }}
+                  style={{ width: '100%', minHeight: '80px', resize: 'vertical' }}
+                />
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* 3. Detail Produk yang Diretur */}
+      {/* 3. Detail Produk yang Diretur — plain table (has controlled inputs) */}
       {foundSales && (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem' }}>
             <h3 style={{ fontSize: '1.1rem', color: 'var(--primary)', margin: 0 }}>3. Detail Produk yang Diretur</h3>
           </div>
 
-          <div className="table-container" style={{ border: 'none', borderTop: '1px solid var(--border-color)', borderRadius: 0 }}>
-            <table className="table" style={{ borderBottom: '1px solid var(--border-color)' }}>
+          <div className="table-container" style={{ border: 'none', borderTop: '1px solid var(--border-color)', borderRadius: 0, padding: '1rem', overflowX: 'auto' }}>
+            <table className="table" style={{ minWidth: '900px' }}>
               <thead>
-                <tr style={{ background: 'var(--bg-tertiary)' }}>
-                  <th style={{ padding: '1rem', width: '50px' }}>No</th>
-                  <th style={{ padding: '1rem' }}>Produk</th>
-                  <th style={{ padding: '1rem', textAlign: 'center' }}>Jumlah Dibeli<br />(PCS)</th>
-                  <th style={{ padding: '1rem', textAlign: 'center' }}>Sudah Diretur<br />(PCS)</th>
-                  <th style={{ padding: '1rem', textAlign: 'center' }}>Maksimal Retur<br />(PCS)</th>
-                  <th style={{ padding: '1rem', textAlign: 'center' }}>Jumlah Retur (PCS) <span style={{ color: 'var(--danger)' }}>*</span></th>
-                  <th style={{ padding: '1rem', textAlign: 'center' }}>Stok Setelah<br />Retur (PCS)</th>
-                  <th style={{ padding: '1rem', textAlign: 'center' }}>Alasan (Per Produk)</th>
-                  <th style={{ padding: '1rem', textAlign: 'center', width: '60px' }}>Aksi</th>
+                <tr>
+                  <th>Produk</th>
+                  <th style={{ textAlign: 'center' }}>Dibeli (PCS)</th>
+                  <th style={{ textAlign: 'center' }}>Sdh Retur</th>
+                  <th style={{ textAlign: 'center' }}>Maks Retur</th>
+                  <th style={{ textAlign: 'center', width: '110px' }}>Jml Retur *</th>
+                  <th style={{ textAlign: 'center' }}>Stok +</th>
+                  <th style={{ width: '180px' }}>Alasan per Produk</th>
+                  <th style={{ textAlign: 'center', width: '60px' }}>Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                {returnItems.map((item, index) => {
+                {returnItems.map((item) => {
                   const qtyVal = parseInt(item.returnQty) || 0;
-                  // For safety, assume currentStock wasn't fully populated in check-sales and just show +qty
-                  const afterStockAdd = qtyVal > 0 ? `+${qtyVal}` : '-';
-
                   return (
                     <tr key={item.sales_detail_id}>
-                      <td style={{ padding: '1rem' }}>{index + 1}</td>
-                      <td style={{ padding: '1rem', fontWeight: 600 }}>{item.product_code} - {item.name}</td>
-                      <td style={{ padding: '1rem', textAlign: 'center' }}>{item.bought}</td>
-                      <td style={{ padding: '1rem', textAlign: 'center' }}>{item.returned}</td>
-                      <td style={{ padding: '1rem', textAlign: 'center', color: 'var(--success)', fontWeight: 600 }}>{item.maxReturn}</td>
-                      <td style={{ padding: '1rem', textAlign: 'center' }}>
+                      <td style={{ fontWeight: 600 }}>{item.product_code} — {item.name}</td>
+                      <td style={{ textAlign: 'center' }}>{item.bought}</td>
+                      <td style={{ textAlign: 'center' }}>{item.returned}</td>
+                      <td style={{ textAlign: 'center', color: 'var(--success)', fontWeight: 600 }}>{item.maxReturn}</td>
+                      <td style={{ textAlign: 'center' }}>
                         <input
                           type="number"
                           className="form-input"
                           value={item.returnQty}
-                          onChange={(e) => handleReturnQtyChange(index, e.target.value)}
+                          onChange={(e) => handleReturnQtyChange(item.sales_detail_id, e.target.value)}
                           max={item.maxReturn}
                           min="0"
-                          style={{ width: '80px', padding: '0.5rem', textAlign: 'center' }}
+                          style={{ width: '80px', padding: '0.4rem', textAlign: 'center', margin: '0 auto', display: 'block' }}
                         />
                       </td>
-                      <td style={{ padding: '1rem', textAlign: 'center', color: 'var(--success)', fontWeight: 600 }}>{afterStockAdd}</td>
-                      <td style={{ padding: '1rem', textAlign: 'center' }}>
+                      <td style={{ textAlign: 'center', color: 'var(--success)', fontWeight: 600 }}>
+                        {qtyVal > 0 ? `+${qtyVal}` : '—'}
+                      </td>
+                      <td>
                         <SearchableSelect
                           value={item.reason}
                           options={[
@@ -562,13 +523,17 @@ export default function SalesReturnPage() {
                             { value: 'Produk tidak sesuai', label: 'Produk tidak sesuai' },
                             { value: 'Produk cacat', label: 'Produk cacat' },
                           ]}
-                          onChange={(value) => handleItemReasonChange(index, value)}
+                          onChange={(value) => handleItemReasonChange(item.sales_detail_id, value)}
                           placeholder="Alasan per produk..."
                           className="form-select form-input"
                         />
                       </td>
-                      <td style={{ padding: '1rem', textAlign: 'center' }}>
-                        <button className="btn btn-danger" style={{ padding: '0.4rem 0.6rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.2)' }} onClick={() => handleRemoveItem(index)}>
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          className="btn btn-danger"
+                          style={{ padding: '0.4rem 0.6rem', background: 'rgba(239,68,68,0.1)', color: 'var(--danger)', border: '1px solid rgba(239,68,68,0.2)' }}
+                          onClick={() => handleRemoveItem(item.sales_detail_id)}
+                        >
                           🗑️
                         </button>
                       </td>
@@ -593,7 +558,11 @@ export default function SalesReturnPage() {
       {/* Footer Actions */}
       {foundSales && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-          <button className="btn btn-secondary" style={{ padding: '0.75rem 2.5rem' }} onClick={() => { setFoundSales(null); setSalesNumberQuery(''); setReturnItems([]); }}>
+          <button
+            className="btn btn-secondary"
+            style={{ padding: '0.75rem 2.5rem' }}
+            onClick={() => { setFoundSales(null); setSalesNumberQuery(''); setReturnItems([]); }}
+          >
             Batal
           </button>
           <button className="btn btn-primary" style={{ padding: '0.75rem 2.5rem' }} onClick={handleSubmit} disabled={isLoading}>
@@ -601,7 +570,6 @@ export default function SalesReturnPage() {
           </button>
         </div>
       )}
-
     </div>
   );
 }

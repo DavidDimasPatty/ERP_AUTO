@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import SearchableSelect from '@/components/SearchableSelect';
+import DataTableClient from '@/components/DataTableClient';
 
 interface UserRole {
   user_id: number;
@@ -12,11 +13,8 @@ interface UserRole {
   is_active: boolean;
 }
 
-export default function UnitPage() {
+export default function UserRolePage() {
   const [data, setData] = useState<UserRole[]>([]);
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
 
   // Form State
@@ -33,11 +31,11 @@ export default function UnitPage() {
   const fetchUnits = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/master/user?search=${encodeURIComponent(search)}&page=${page}&limit=10`);
+      const res = await fetch(`/api/master/user?limit=1000`);
       const json = await res.ok ? await res.json() : null;
       if (json) {
-        setData(json.data);
-        setTotalPages(json.pagination.totalPages || 1);
+        // Filter out super admin (user_id === 1)
+        setData((json.data || []).filter((u: UserRole) => u.user_id !== 1));
       }
     } catch (error) {
       console.error('Fetch error:', error);
@@ -48,7 +46,7 @@ export default function UnitPage() {
 
   useEffect(() => {
     fetchUnits();
-  }, [page, search]);
+  }, []);
 
   const handleOpenCreate = () => {
     setEditId(null);
@@ -202,124 +200,67 @@ export default function UnitPage() {
         </button>
       </div>
 
-      {/* Filter and Search */}
-      <div className="card" style={{ display: 'flex', gap: '1rem', padding: '1rem' }}>
-        <input
-          type="text"
-          className="form-input"
-          style={{ flexGrow: 1 }}
-          placeholder="Cari berdasarkan nama atau username"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-        />
-      </div>
-
       {/* Data Table */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Nama</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th style={{ width: '120px', textAlign: 'center' }}>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={4} style={{ textAlign: 'center', padding: '2rem' }}>Memuat data...</td>
-                </tr>
-              ) : data.length === 0 ? (
-                <tr>
-                  <td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                    Tidak ada data user
-                  </td>
-                </tr>
-              ) : (
-                data.map((u) =>
-                  u.user_id !== 1 ? (
-                    <tr key={u.user_id}>
-                      <td style={{ fontWeight: 700 }}>{u.full_name}</td>
-                      <td>{u.username}</td>
-                      <td>
-                        <span className={`badge ${u.is_active ? 'badge-success' : 'badge-danger'}`}>
-                          {u.is_active ? 'Aktif' : 'Tidak Aktif'}
-                        </span>
-                      </td>
-                      <td style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
-                        <button
-                          onClick={() => handleOpenEdit(u)}
-                          className="btn btn-secondary"
-                          style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
-                        >
-                          ✏️
-                        </button>
-
-                        {u.is_active && (
-                          <button
-                            onClick={() => handleSoftDelete(u.user_id)}
-                            className="btn btn-primary"
-                            style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
-                          >
-                            DEACTIVE
-                          </button>
-                        )}
-
-                        {!u.is_active && (
-                          <button
-                            onClick={() => handleSoftDelete(u.user_id)}
-                            className="btn btn-success"
-                            style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
-                          >
-                            ACTIVE
-                          </button>
-                        )}
-
-                        <button
-                          onClick={() => handleHardDelete(u.user_id)}
-                          className="btn btn-danger"
-                          style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
-                          disabled={!u.is_active}
-                        >
-                          🗑️
-                        </button>
-                      </td>
-                    </tr>
-                  ) : null
+        <div className="table-container" style={{ padding: '1rem' }}>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '2rem' }}>Memuat data...</div>
+          ) : (
+            <DataTableClient
+              isSearchable={true}
+              data={data}
+              columns={[
+                { title: 'Nama', data: 'full_name' },
+                { title: 'Role', data: 'username' },
+                { title: 'Status', data: null, orderable: false, searchable: false },
+                { title: 'Aksi', data: null, orderable: false, searchable: false, className: 'text-center' }
+              ]}
+              slots={{
+                2: (cellData: any, rowData: UserRole) => (
+                  <span className={`badge ${rowData.is_active ? 'badge-success' : 'badge-danger'}`}>
+                    {rowData.is_active ? 'Aktif' : 'Tidak Aktif'}
+                  </span>
+                ),
+                3: (cellData: any, rowData: UserRole) => (
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
+                    <button
+                      onClick={() => handleOpenEdit(rowData)}
+                      className="btn btn-secondary"
+                      style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                    >
+                      ✏️
+                    </button>
+                    {rowData.is_active ? (
+                      <button
+                        onClick={() => handleSoftDelete(rowData.user_id)}
+                        className="btn btn-primary"
+                        style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                      >
+                        DEACTIVE
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleSoftDelete(rowData.user_id)}
+                        className="btn btn-success"
+                        style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                      >
+                        ACTIVE
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleHardDelete(rowData.user_id)}
+                      className="btn btn-danger"
+                      style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                      disabled={!rowData.is_active}
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 )
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination Footer */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.5rem', background: 'var(--bg-secondary)', borderTop: '1px solid var(--border-color)' }}>
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Halaman {page} dari {totalPages}
-          </span>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              onClick={() => setPage((p) => Math.max(p - 1, 1))}
-              disabled={page === 1}
-              className="btn btn-secondary"
-              style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}
-            >
-              Sebelumnya
-            </button>
-            <button
-              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-              disabled={page === totalPages}
-              className="btn btn-secondary"
-              style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}
-            >
-              Selanjutnya
-            </button>
-          </div>
+              }}
+              className="display table"
+            />
+          )}
         </div>
       </div>
 

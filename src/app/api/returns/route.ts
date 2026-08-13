@@ -226,11 +226,14 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // nambahin stock dari jumlah returan barang
-        await tx.m_product_stock.update({
+        await tx.m_product_stock.upsert({
           where: { product_id: d.product_id },
-          data: {
+          update: {
             stock_quantity: { increment: d.return_quantity },
+          },
+          create: {
+            product_id: d.product_id,
+            stock_quantity: d.return_quantity,
           },
         });
 

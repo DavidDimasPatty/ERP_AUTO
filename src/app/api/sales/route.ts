@@ -154,11 +154,20 @@ export async function POST(req: NextRequest) {
 
         const product = await tx.m_product.findUnique({
           where: { product_id: productId },
-          include: { unit: true, stock: true },
+          include: { unit: true, stock: true, prices: true },
         });
 
         if (!product || !product.is_active) {
           throw new Error(`Produk dengan ID ${productId} tidak ditemukan atau tidak aktif`);
+        }
+
+        // const level1PriceObj = product.prices.find((p: any) => p.price_level_id === 1);
+        // const level1Price = level1PriceObj ? Number(level1PriceObj.price_amount) : 0;
+        const level1PriceObj = product.cost_price;
+        const level1Price = level1PriceObj ? Number(level1PriceObj) : 0;
+
+        if (price < level1Price) {
+          throw new Error(`Harga jual produk "${product.product_name}" (Rp ${price.toLocaleString('id-ID')}) tidak boleh kurang dari harga Pokok Penjualan (Rp ${level1Price.toLocaleString('id-ID')})`);
         }
 
         const currentStock = product.stock ? product.stock.stock_quantity : 0;
@@ -190,20 +199,20 @@ export async function POST(req: NextRequest) {
       const totalAmount = subtotal - discount;
 
       const tendered = parseFloat(payment.tendered_amount);
-      if (isNaN(tendered)) {
-        throw new Error('Jumlah bayar/tendered wajib diisi dengan angka');
-      }
+      // if (isNaN(tendered)) {
+      //   throw new Error('Jumlah bayar/tendered wajib diisi dengan angka');
+      // }
 
-      //validasi pembayaran
-      if (payment.payment_method === 'CASH') {
-        if (tendered < totalAmount) {
-          throw new Error(`Jumlah bayar tunai (${tendered}) kurang dari total tagihan (${totalAmount})`);
-        }
-      } else {
-        if (tendered !== totalAmount) {
-          throw new Error(`Pembayaran Non-Tunai harus pas sebesar ${totalAmount}`);
-        }
-      }
+      // //validasi pembayaran
+      // if (payment.payment_method === 'CASH') {
+      //   if (tendered < totalAmount) {
+      //     throw new Error(`Jumlah bayar tunai (${tendered}) kurang dari total tagihan (${totalAmount})`);
+      //   }
+      // } else {
+      //   if (tendered !== totalAmount) {
+      //     throw new Error(`Pembayaran Non-Tunai harus pas sebesar ${totalAmount}`);
+      //   }
+      // }
 
       const changeAmount = payment.payment_method === 'CASH' ? tendered - totalAmount : 0;
 
@@ -265,39 +274,34 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        if (!d.is_loose_item) {
-          // jagaan race condition
-          // const affected = await tx.$executeRawUnsafe(
-          //   `UPDATE m_product_stock SET stock_quantity = stock_quantity - ? WHERE product_id = ? AND stock_quantity >= ?`,
-          //   d.quantity, d.product_id, d.quantity
-          // );
-          const affected = await tx.$executeRawUnsafe(
-            `UPDATE m_product_stock SET stock_quantity = stock_quantity - ? WHERE product_id = ?`,
-            d.quantity, d.product_id
-          );
-
-          if (affected === 0) {
-            throw new Error(`Stok produk "${d.product_name_snapshot}" tidak mencukupi karena ada transaksi lain bersamaan. Silakan coba lagi.`);
-          }
-        }
+        await tx.m_product_stock.upsert({
+          where: { product_id: d.product_id },
+          update: {
+            stock_quantity: { decrement: d.quantity },
+          },
+          create: {
+            product_id: d.product_id,
+            stock_quantity: -d.quantity,
+          },
+        });
 
         //insert stock movement only for stock-managed products
-        if (!d.is_loose_item) {
-          await tx.t_stock_movement.create({
-            data: {
-              product_id: d.product_id,
-              movement_type: 'SALES_OUT',
-              reference_number: salesNumber,
-              reference_id: sales.sales_id,
-              reference_detail_id: detailRecord.sales_detail_id,
-              quantity_in: 0,
-              quantity_out: d.quantity,
-              unit_cost: d.cost_price_snapshot,
-              movement_datetime: new Date(),
-              created_by_user_id: cashier.user_id,
-            },
-          });
-        }
+        // if (!d.is_loose_item) {
+        await tx.t_stock_movement.create({
+          data: {
+            product_id: d.product_id,
+            movement_type: 'SALES_OUT',
+            reference_number: salesNumber,
+            reference_id: sales.sales_id,
+            reference_detail_id: detailRecord.sales_detail_id,
+            quantity_in: 0,
+            quantity_out: d.quantity,
+            unit_cost: d.cost_price_snapshot,
+            movement_datetime: new Date(),
+            created_by_user_id: cashier.user_id,
+          },
+        });
+        // }
       }
 
       // insert payment

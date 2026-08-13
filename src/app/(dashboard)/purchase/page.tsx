@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Swal from 'sweetalert2';
 import AsyncSearchableSelect, { AsyncSelectOption } from '@/components/AsyncSearchableSelect';
+import DataTableClient from '@/components/DataTableClient';
 
 export default function PurchaseTransactionPage() {
   // Master Data cache
@@ -52,7 +53,7 @@ export default function PurchaseTransactionPage() {
     const data = await res.json();
     return (data.data || []).map((p: any) => {
       setProductsCache(prev => ({ ...prev, [p.product_id.toString()]: p }));
-      return { value: p.product_id.toString(), label: `${p.product_code} - ${p.product_name}` };
+      return { value: p.product_id.toString(), label: `${p.product_code} - ${p.product_name} - ${p.brand?.brand_name}` };
     });
   }, []);
 
@@ -105,6 +106,7 @@ export default function PurchaseTransactionPage() {
     }
 
     const item = {
+      id: Date.now() + Math.random(),
       product_id: prodInfo.product_id,
       product_code: prodInfo.product_code,
       name: prodInfo.product_name,
@@ -305,57 +307,45 @@ export default function PurchaseTransactionPage() {
           </button>
         </div>
 
-        <div className="table-container" style={{ border: 'none', borderTop: '1px solid var(--border-color)', borderRadius: 0 }}>
-          <table className="table" style={{ borderBottom: '1px solid var(--border-color)' }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-tertiary)' }}>
-                <th style={{ padding: '1rem 1.5rem', width: '50px' }}>No</th>
-                <th style={{ padding: '1rem 1.5rem' }}>Produk</th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>Satuan</th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>Jumlah</th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>Harga Beli </th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>Total Harga</th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'center', width: '80px' }}>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cart.length === 0 ? (
-                <tr>
-                  <td colSpan={7} style={{ padding: '4rem 2rem', textAlign: 'center' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-                      <div style={{ width: '64px', height: '64px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', color: 'var(--text-muted)' }}>
-                        📇
-                      </div>
-                      <div>
-                        <h4 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Belum ada produk ditambahkan</h4>
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Klik tombol "+ Tambah Produk" untuk menambahkan produk</p>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                cart.map((item, index) => (
-                  <tr key={index}>
-                    <td style={{ padding: '1rem 1.5rem' }}>{index + 1}</td>
-                    <td style={{ padding: '1rem 1.5rem', fontWeight: 600 }}>{item.product_code} - {item.name}</td>
-                    <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>{item.unit}</td>
-                    <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>{item.quantity}</td>
-                    <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>{item.purchase_unit_price.toLocaleString('id-ID')}</td>
-                    <td style={{ padding: '1rem 1.5rem', textAlign: 'right', fontWeight: 600 }}>{item.line_total.toLocaleString('id-ID')}</td>
-                    <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>
-                      <button className="btn btn-danger" style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }} onClick={() => {
-                        const newCart = [...cart];
-                        newCart.splice(index, 1);
-                        setCart(newCart);
-                      }}>
-                        Hapus
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="table-container" style={{ border: 'none', borderTop: '1px solid var(--border-color)', borderRadius: 0, padding: '1rem' }}>
+          {cart.length === 0 ? (
+            <div style={{ padding: '4rem 2rem', textAlign: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ width: '64px', height: '64px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', color: 'var(--text-muted)' }}>
+                  📇
+                </div>
+                <div>
+                  <h4 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Belum ada produk ditambahkan</h4>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Klik tombol "+ Tambah Produk" untuk menambahkan produk</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <DataTableClient
+              data={cart}
+              columns={[
+                { title: 'Produk', data: null, orderable: false },
+                { title: 'Satuan', data: 'unit', className: 'text-center', orderable: false },
+                { title: 'Jumlah', data: 'quantity', className: 'text-center', orderable: false },
+                { title: 'Harga Beli', data: null, className: 'text-right', orderable: false },
+                { title: 'Total Harga', data: null, className: 'text-right', orderable: false },
+                { title: 'Aksi', data: null, className: 'text-center', orderable: false, searchable: false }
+              ]}
+              slots={{
+                0: (cellData: any, rowData: any) => <span style={{ fontWeight: 600 }}>{rowData.product_code} - {rowData.name}</span>,
+                3: (cellData: any, rowData: any) => rowData.purchase_unit_price.toLocaleString('id-ID'),
+                4: (cellData: any, rowData: any) => <span style={{ fontWeight: 600 }}>{rowData.line_total.toLocaleString('id-ID')}</span>,
+                5: (cellData: any, rowData: any) => (
+                  <button className="btn btn-danger" style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }} onClick={() => {
+                    setCart(prev => prev.filter(c => c.id !== rowData.id));
+                  }}>
+                    Hapus
+                  </button>
+                )
+              }}
+              className="display table"
+            />
+          )}
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '1.5rem', gap: '2rem' }}>

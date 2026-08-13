@@ -1,240 +1,103 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
+import React, { useState, useEffect, useCallback } from 'react';
 import { exportToCSV } from '@/lib/exportExcel';
+import DataTableClient from '@/components/DataTableClient';
+
+const PRINT_STYLE = `
+@media print {
+  aside, header, nav, .no-print { display: none !important; }
+  body, main, .app-container, .main-content {
+    margin: 0 !important; padding: 0 !important;
+    background: #fff !important; color: #000 !important; width: 100% !important;
+  }
+  .card { border: none !important; box-shadow: none !important; padding: 0 !important; background: #fff !important; }
+  .report-view { display: none !important; }
+  .print-section { display: block !important; }
+  .print-header { display: block !important; margin-bottom: 1.2rem; border-bottom: 2px solid #000; padding-bottom: 0.5rem; }
+  .print-header h1 { font-size: 1.4rem !important; margin: 0 !important; color: #000 !important; }
+  .table { width: 100% !important; border-collapse: collapse !important; }
+  .table th, .table td { border: 1px solid #000 !important; padding: 0.4rem 0.5rem !important; color: #000 !important; font-size: 0.8rem !important; }
+  .table th { background-color: #f0f0f0 !important; font-weight: 700; }
+  .table tfoot tr td { background-color: #e8e8e8 !important; font-weight: 700; }
+}
+.print-section { display: none; }
+.print-header { display: none; }
+`;
 
 export default function PurchaseReport() {
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 10;
 
-  const [printData, setPrintData] = useState<any[]>([]);
-  const [isPrintLoading, setIsPrintLoading] = useState(false);
-  const [isPrintReady, setIsPrintReady] = useState(false);
-
-  const reportData = data;
-
-  const getFieldValue = (item: any, key: string) => {
+  const getField = (item: any, key: string) => {
     switch (key) {
-      case 'purchase_number':
-        return item.purchase_number || item.purchaseNumber || '';
-      case 'date':
-        return item.date || item.purchase_datetime || '';
-      case 'supplier':
-        return item.supplier || item.supplier_name || '';
-      case 'invoice_no':
-        return item.invoice_no || item.supplier_invoice_number || '';
-      case 'total':
-        return Number(item.total || item.total_amount || 0);
-      case 'user':
-        return item.user || item.created_by_name || '';
-      default:
-        return item[key] || '';
+      case 'purchase_number': return item.purchase_number || item.purchaseNumber || '';
+      case 'date': return item.date || item.purchase_datetime || '';
+      case 'supplier': return item.supplier || item.supplier_name || '';
+      case 'invoice_no': return item.invoice_no || item.supplier_invoice_number || '';
+      case 'total': return Number(item.total || item.total_amount || 0);
+      case 'user': return item.user || item.created_by_name || '';
+      default: return item[key] || '';
     }
   };
 
-  const filteredData = reportData.filter(item => {
-    const term = searchTerm.toLowerCase();
-    return (
-      getFieldValue(item, 'purchase_number').toString().toLowerCase().includes(term) ||
-      getFieldValue(item, 'date').toString().toLowerCase().includes(term) ||
-      getFieldValue(item, 'supplier').toString().toLowerCase().includes(term) ||
-      getFieldValue(item, 'invoice_no').toString().toLowerCase().includes(term) ||
-      getFieldValue(item, 'user').toString().toLowerCase().includes(term)
-    );
-  });
+  const dataForTable = data.map((item) => ({
+    ...item,
+    _purchase_number: getField(item, 'purchase_number'),
+    _date: getField(item, 'date'),
+    _supplier: getField(item, 'supplier'),
+    _invoice_no: getField(item, 'invoice_no'),
+    _total: getField(item, 'total'),
+    _user: getField(item, 'user'),
+  }));
 
-  const sortedData = sortKey
-    ? [...filteredData].sort((a, b) => {
-      const aValue = getFieldValue(a, sortKey);
-      const bValue = getFieldValue(b, sortKey);
+  const totalAmount = data.reduce((s, i) => s + Number(getField(i, 'total')), 0);
 
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
-      }
-
-      return sortOrder === 'asc'
-        ? String(aValue).localeCompare(String(bValue), 'id', { numeric: true })
-        : String(bValue).localeCompare(String(aValue), 'id', { numeric: true });
-    })
-    : filteredData;
-
-  const totalPages = Math.max(1, Math.ceil(sortedData.length / rowsPerPage));
-  const paginatedData = sortedData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
-
-  const totalAmount = filteredData.reduce((sum, item) => sum + Number(getFieldValue(item, 'total')), 0);
-  const printTotalAmount = printData.reduce((sum, item) => sum + Number(item.total || item.total_amount || 0), 0);
-
-  const handleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortKey(key);
-      setSortOrder('asc');
-    }
-  };
-
-  const sortIndicator = (key: string) => (sortKey === key ? (sortOrder === 'asc' ? '▲' : '▼') : '');
-
-  const fetchReport = async () => {
+  const fetchReport = useCallback(async () => {
     setLoading(true);
     try {
-      let url = '/api/laporan/purchase';
       const params = new URLSearchParams();
       if (start) params.append('start', start);
       if (end) params.append('end', end);
-      if (params.toString()) url += `?${params.toString()}`;
-
-      const res = await fetch(url);
+      const res = await fetch(`/api/laporan/purchase${params.toString() ? `?${params}` : ''}`);
       if (res.ok) {
         const json = await res.json();
-        if (Array.isArray(json)) {
-          setData(json);
-        }
+        if (Array.isArray(json)) setData(json);
       }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  }, [start, end]);
 
-  useEffect(() => {
-    fetchReport();
-  }, []);
+  useEffect(() => { fetchReport(); }, []);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, start, end]);
-
-  const handleExportExcel = () => {
+  const handleExportCSV = () => {
     const headers = ['No. Pembelian', 'Tanggal & Waktu', 'Supplier', 'No. Faktur Supplier', 'Total (Rp)', 'Pembuat'];
-    const rows = reportData.map(row => [
-      row.purchase_number || '-',
-      row.date || '-',
-      row.supplier || row.supplier_name || '-',
-      row.invoice_no || row.supplier_invoice_number || '-',
-      row.total || 0,
-      row.user || row.created_by_name || '-'
+    const rows = data.map(r => [
+      getField(r, 'purchase_number'), getField(r, 'date'), getField(r, 'supplier'),
+      getField(r, 'invoice_no'), getField(r, 'total'), getField(r, 'user'),
     ]);
-
     exportToCSV(`Laporan_Pembelian_${start || 'semua'}_sd_${end || 'semua'}`, headers, rows);
   };
 
-  const loadPrintData = async () => {
-    setIsPrintLoading(true);
-    setIsPrintReady(false);
-    try {
-      let url = '/api/laporan/purchase';
-      const params = new URLSearchParams();
-      if (start) params.append('start', start);
-      if (end) params.append('end', end);
-      if (params.toString()) url += `?${params.toString()}`;
-
-      const res = await fetch(url);
-      if (res.ok) {
-        const json = await res.json();
-        if (Array.isArray(json)) {
-          setPrintData(json);
-          setIsPrintReady(true);
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsPrintLoading(false);
-    }
-  };
-
-  const handlePrintPDF = () => {
-    loadPrintData();
-  };
-
-  useEffect(() => {
-    if (isPrintReady) {
-      window.print();
-    }
-  }, [isPrintReady]);
-
-  useEffect(() => {
-    const afterPrint = () => setIsPrintReady(false);
-    window.addEventListener('afterprint', afterPrint);
-    return () => window.removeEventListener('afterprint', afterPrint);
-  }, []);
+  const handlePrint = () => window.print();
 
   return (
     <>
-      {/* Printable CSS Styling */}
-      <style jsx global>{`
-        @media print {
-          aside, header, nav, .no-print, .report-view, .btn, input, label {
-            display: none !important;
-          }
-          .print-preview {
-            display: block !important;
-          }
-          body, main, .app-container, .main-content {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #fff !important;
-            color: #000 !important;
-            width: 100% !important;
-          }
-          .card {
-            border: none !important;
-            box-shadow: none !important;
-            padding: 0 !important;
-            background: #fff !important;
-          }
-          .print-header {
-            display: block !important;
-            margin-bottom: 1.5rem;
-            border-bottom: 2px solid #000;
-            padding-bottom: 0.5rem;
-          }
-          .print-header h1 {
-            font-size: 1.5rem !important;
-            margin: 0 !important;
-            color: #000 !important;
-          }
-          .table {
-            width: 100% !important;
-            border-collapse: collapse !important;
-          }
-          .table th, .table td {
-            border: 1px solid #000 !important;
-            padding: 0.5rem !important;
-            color: #000 !important;
-            font-size: 0.85rem !important;
-          }
-          .table th {
-            background-color: #f0f0f0 !important;
-          }
-        }
-        .print-preview {
-          display: none;
-        }
-      `}</style>
+      <style jsx global>{PRINT_STYLE}</style>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
-        {/* Top Header & Navigation */}
+        {/* Header */}
         <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ fontSize: '1.5rem', margin: 0 }}>Laporan Pembelian</h1>
             <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Laporan &gt; Laporan Pembelian</span>
           </div>
-
         </div>
 
-        {/* Filter Card */}
+        {/* Filter */}
         <div className="card no-print" style={{ padding: '1.25rem', display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label" style={{ fontSize: '0.8rem' }}>Dari Tanggal</label>
@@ -244,172 +107,104 @@ export default function PurchaseReport() {
             <label className="form-label" style={{ fontSize: '0.8rem' }}>Sampai Tanggal</label>
             <input type="date" className="form-input" value={end} onChange={e => setEnd(e.target.value)} />
           </div>
-          <div className="form-group" style={{ marginBottom: 0, flexGrow: 1 }}>
-            <label className="form-label" style={{ fontSize: '0.8rem' }}>Cari</label>
-            <input type="text" className="form-input" placeholder="Cari nomor, supplier, faktur, pembuat..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-          </div>
-          <button className="btn btn-primary" onClick={fetchReport} style={{ height: '38px' }}>
-            🔍 Tampilkan
+          <button className="btn btn-primary" onClick={fetchReport} disabled={loading} style={{ height: '38px' }}>
+            {loading ? 'Memuat...' : '🔍 Tampilkan'}
           </button>
-
           <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
-            <button className="btn btn-secondary" onClick={handleExportExcel} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#16a34a', borderColor: '#16a34a' }}>
+            <button className="btn btn-secondary" onClick={handleExportCSV} style={{ color: '#16a34a', borderColor: '#16a34a' }}>
               📊 Export CSV
             </button>
-            <button className="btn btn-primary" onClick={handlePrintPDF} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              🖨️ Export PDF / Cetak
+            <button className="btn btn-primary" onClick={handlePrint}>
+              🖨️ Cetak / PDF
             </button>
           </div>
         </div>
 
-        {/* Normal Report View */}
+        {/* DataTable view (screen only) */}
         <div className="card report-view" style={{ padding: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Data Transaksi Pembelian</h3>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Menampilkan {paginatedData.length} transaksi dari {filteredData.length}</span>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              {loading ? 'Memuat...' : `${data.length} transaksi`}
+            </span>
           </div>
-
-          <div className="table-container" style={{ border: 'none' }}>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th style={{ width: '40px' }}>No</th>
-                  <th onClick={() => handleSort('purchase_number')} style={{ cursor: 'pointer' }}>No. Pembelian {sortIndicator('purchase_number')}</th>
-                  <th onClick={() => handleSort('date')} style={{ cursor: 'pointer' }}>Tanggal & Waktu {sortIndicator('date')}</th>
-                  <th onClick={() => handleSort('supplier')} style={{ cursor: 'pointer' }}>Supplier {sortIndicator('supplier')}</th>
-                  <th onClick={() => handleSort('invoice_no')} style={{ cursor: 'pointer' }}>No. Faktur Supplier {sortIndicator('invoice_no')}</th>
-                  <th onClick={() => handleSort('total')} style={{ cursor: 'pointer', textAlign: 'right' }}>Total (Rp) {sortIndicator('total')}</th>
-                  <th onClick={() => handleSort('user')} style={{ cursor: 'pointer' }}>Pembuat {sortIndicator('user')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>Memuat data laporan...</td>
-                  </tr>
-                ) : paginatedData.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Tidak ada data pembelian pada periode ini</td>
-                  </tr>
-                ) : (
-                  paginatedData.map((row, idx) => (
-                    <tr key={idx}>
-                      <td>{(currentPage - 1) * rowsPerPage + idx + 1}</td>
-                      <td style={{ fontWeight: 600 }}>{row.purchase_number || '-'}</td>
-                      <td>{row.date || '-'}</td>
-                      <td>{row.supplier || row.supplier_name || '-'}</td>
-                      <td>{row.invoice_no || row.supplier_invoice_number || '-'}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 600 }}>{(Number(row.total) || 0).toLocaleString('id-ID')}</td>
-                      <td>{row.user || row.created_by_name || '-'}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-              <tfoot>
-                <tr style={{ background: 'var(--bg-tertiary)', fontWeight: 700 }}>
-                  <td colSpan={5} style={{ textAlign: 'right', padding: '1rem' }}>TOTAL PEMBELIAN:</td>
-                  <td style={{ textAlign: 'right', padding: '1rem', color: 'var(--primary)', fontSize: '1.1rem' }}>
-                    Rp {totalAmount.toLocaleString('id-ID')}
-                  </td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-          <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ color: 'var(--text-muted)' }}>
-              Menampilkan {paginatedData.length} dari {filteredData.length} data
-            </div>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button className="btn btn-secondary" disabled={currentPage === 1} onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}>
-                Sebelumnya
-              </button>
-              <span style={{ alignSelf: 'center' }}>Halaman {currentPage} dari {totalPages}</span>
-              <button className="btn btn-secondary" disabled={currentPage === totalPages} onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}>
-                Berikutnya
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* PDF Header for Printing */}
-        <div className="print-preview" style={{ display: isPrintReady ? "block" : "none" }}>
-          <div className="print-header">
-            <h1>MITRA MOTOR</h1>
-            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem' }}>LAPORAN TRANSAKSI PEMBELIAN</p>
-            <p style={{ margin: 0, fontSize: '0.8rem', color: '#555' }}>
-              Periode: {start ? start : 'Semua'} s/d {end ? end : 'Semua'} | Dicetak: {new Date().toLocaleString('id-ID')}
-            </p>
-          </div>
-
-          <div className="card" style={{ padding: '1.5rem', width: '100%' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Data Transaksi Pembelian</h3>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Menampilkan {printData.length} transaksi</span>
-            </div>
-
-            <div className="table-container" style={{ border: 'none', width: '100%' }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '50px' }}>No</th>
-                    <th >No. Pembelian</th>
-                    <th>Tanggal & Waktu</th>
-                    <th>Supplier</th>
-                    <th>No. Faktur Supplier</th>
-                    <th style={{ textAlign: 'right' }}>Total (Rp)</th>
-                    <th>Pembuat</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {isPrintLoading ? (
-                    <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>Memuat data cetak...</td>
-                    </tr>
-                  ) : printData.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Tidak ada data pembelian untuk dicetak</td>
-                    </tr>
-                  ) : (
-                    printData.map((row, idx) => (
-                      <tr key={idx}>
-                        <td>{idx + 1}</td>
-                        <td style={{ fontWeight: 600 }}>{row.purchase_number || '-'}</td>
-                        <td>{row.date || '-'}</td>
-                        <td>{row.supplier || row.supplier_name || '-'}</td>
-                        <td>{row.invoice_no || row.supplier_invoice_number || '-'}</td>
-                        <td style={{ textAlign: 'right', fontWeight: 600 }}>{(Number(row.total) || 0).toLocaleString('id-ID')}</td>
-                        <td>{row.user || row.created_by_name || '-'}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Memuat data...</div>
+          ) : (
+            <div className="table-container" style={{ border: 'none' }}>
+              <DataTableClient
+                data={dataForTable}
+                columns={[
+                  { title: 'No. Pembelian', data: '_purchase_number' },
+                  { title: 'Tanggal & Waktu', data: '_date' },
+                  { title: 'Supplier', data: '_supplier' },
+                  { title: 'No. Faktur Supplier', data: '_invoice_no' },
+                  { title: 'Total (Rp)', data: '_total', className: 'text-right' },
+                  { title: 'Pembuat', data: '_user' },
+                ]}
+                slots={{
+                  0: (_c, r) => <span style={{ fontWeight: 600 }}>{r._purchase_number || '-'}</span>,
+                  4: (_c, r) => <span style={{ fontWeight: 600 }}>{Number(r._total).toLocaleString('id-ID')}</span>,
+                }}
+                className="display table"
+              >
                 <tfoot>
                   <tr style={{ background: 'var(--bg-tertiary)', fontWeight: 700 }}>
-                    <td colSpan={5} style={{ textAlign: 'right', padding: '1rem' }}>TOTAL PEMBELIAN:</td>
-                    <td style={{ textAlign: 'right', padding: '1rem', color: 'var(--primary)', fontSize: '1.1rem' }}>
-                      Rp {printTotalAmount.toLocaleString('id-ID')}
+                    <td colSpan={4} style={{ textAlign: 'right', padding: '1rem' }}>TOTAL PEMBELIAN:</td>
+                    <td style={{ textAlign: 'right', padding: '1rem', color: 'var(--primary)', fontSize: '1.05rem' }}>
+                      Rp {totalAmount.toLocaleString('id-ID')}
                     </td>
                     <td></td>
                   </tr>
                 </tfoot>
-              </table>
+              </DataTableClient>
             </div>
-            <div className="no-print" style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ color: 'var(--text-muted)' }}>
-                Menampilkan {paginatedData.length} dari {filteredData.length} data
-              </div>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button className="btn btn-secondary" disabled={currentPage === 1} onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}>
-                  Sebelumnya
-                </button>
-                <span style={{ alignSelf: 'center' }}>Halaman {currentPage} dari {totalPages}</span>
-                <button className="btn btn-secondary" disabled={currentPage === totalPages} onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}>
-                  Berikutnya
-                </button>
-              </div>
-            </div>
+          )}
+        </div>
+
+        {/* Print-only section */}
+        <div className="print-section">
+          <div className="print-header">
+            <h1>MITRA MOTOR</h1>
+            <p style={{ margin: '0.2rem 0 0', fontSize: '0.9rem' }}>LAPORAN TRANSAKSI PEMBELIAN</p>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: '#555' }}>
+              Periode: {start || 'Semua'} s/d {end || 'Semua'} &nbsp;|&nbsp; Dicetak: {new Date().toLocaleString('id-ID')}
+            </p>
           </div>
+          <table className="table">
+            <thead>
+              <tr>
+                <th style={{ width: '40px' }}>No</th>
+                <th>No. Pembelian</th>
+                <th>Tanggal &amp; Waktu</th>
+                <th>Supplier</th>
+                <th>No. Faktur Supplier</th>
+                <th style={{ textAlign: 'right' }}>Total (Rp)</th>
+                <th>Pembuat</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((row, idx) => (
+                <tr key={idx}>
+                  <td>{idx + 1}</td>
+                  <td style={{ fontWeight: 600 }}>{getField(row, 'purchase_number') || '-'}</td>
+                  <td>{getField(row, 'date') || '-'}</td>
+                  <td>{getField(row, 'supplier') || '-'}</td>
+                  <td>{getField(row, 'invoice_no') || '-'}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 600 }}>{Number(getField(row, 'total')).toLocaleString('id-ID')}</td>
+                  <td>{getField(row, 'user') || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={5} style={{ textAlign: 'right' }}>TOTAL PEMBELIAN:</td>
+                <td style={{ textAlign: 'right' }}>Rp {totalAmount.toLocaleString('id-ID')}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+          <p style={{ marginTop: '1rem', fontSize: '0.75rem', color: '#555' }}>Total {data.length} transaksi</p>
         </div>
 
       </div>

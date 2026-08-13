@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
+import DataTableClient from '@/components/DataTableClient';
 
 interface Brand {
   brand_id: number;
@@ -14,9 +15,6 @@ interface Brand {
 
 export default function BrandPage() {
   const [data, setData] = useState<Brand[]>([]);
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
 
   // Form State
@@ -34,11 +32,10 @@ export default function BrandPage() {
   const fetchBrands = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/master/brand?search=${encodeURIComponent(search)}&page=${page}&limit=10`);
+      const res = await fetch(`/api/master/brand?limit=1000`);
       const json = res.ok ? await res.json() : null;
       if (json) {
         setData(json.data || []);
-        setTotalPages(json.pagination?.totalPages || 1);
       }
     } catch (error) {
       console.error('Fetch error:', error);
@@ -49,7 +46,7 @@ export default function BrandPage() {
 
   useEffect(() => {
     fetchBrands();
-  }, [page, search]);
+  }, []);
 
   const handleOpenCreate = () => {
     setEditId(null);
@@ -201,124 +198,59 @@ export default function BrandPage() {
         </button>
       </div>
 
-      {/* Filter and Search */}
-      <div className="card" style={{ display: 'flex', gap: '1rem', padding: '1rem' }}>
-        <input
-          type="text"
-          className="form-input"
-          style={{ flexGrow: 1 }}
-          placeholder="Cari berdasarkan kode atau nama merek..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-        />
-      </div>
-
       {/* Data Table */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Kode Merek</th>
-                <th>Nama Merek</th>
-                <th>Status</th>
-                <th style={{ width: '120px', textAlign: 'center' }}>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={4} style={{ textAlign: 'center', padding: '2rem' }}>Memuat data...</td>
-                </tr>
-              ) : data.length === 0 ? (
-                <tr>
-                  <td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                    Tidak ada data merek
-                  </td>
-                </tr>
-              ) : (
-                data.map((b) => (
-                  <tr key={b.brand_id}>
-                    <td style={{ fontWeight: 700 }}>{b.brand_code}</td>
-                    <td>{b.brand_name}</td>
-                    <td>
-                      <span className={`badge ${b.is_active ? 'badge-success' : 'badge-danger'}`}>
-                        {b.is_active ? 'Aktif' : 'Tidak Aktif'}
-                      </span>
-                    </td>
-                    <td style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
+        <div className="table-container" style={{ padding: '1rem' }}>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '2rem' }}>Memuat data...</div>
+          ) : (
+            <DataTableClient
+              isSearchable={true}
+              data={data}
+              columns={[
+                { title: 'Kode Merek', data: 'brand_code' },
+                { title: 'Nama Merek', data: 'brand_name' },
+                { title: 'Status', data: null, orderable: false, searchable: false },
+                { title: 'Aksi', data: null, orderable: false, searchable: false, className: 'text-center' }
+              ]}
+              slots={{
+                2: (cellData: any, rowData: Brand) => (
+                  <span className={`badge ${rowData.is_active ? 'badge-success' : 'badge-danger'}`}>
+                    {rowData.is_active ? 'Aktif' : 'Tidak Aktif'}
+                  </span>
+                ),
+                3: (cellData: any, rowData: Brand) => (
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
+                    <button
+                      onClick={() => handleOpenEdit(rowData)}
+                      className="btn btn-secondary"
+                      style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                    >
+                      ✏️
+                    </button>
+                    {rowData.is_active ? (
                       <button
-                        onClick={() => handleOpenEdit(b)}
-                        className="btn btn-secondary"
+                        onClick={() => handleSoftDelete(rowData.brand_id)}
+                        className="btn btn-primary"
                         style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
                       >
-                        ✏️
+                        DEACTIVE
                       </button>
-
-                      {b.is_active && (
-                        <button
-                          onClick={() => handleSoftDelete(b.brand_id)}
-                          className="btn btn-primary"
-                          style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
-                        >
-                          DEACTIVE
-                        </button>
-                      )}
-
-                      {!b.is_active && (
-                        <button
-                          onClick={() => handleSoftDelete(b.brand_id)}
-                          className="btn btn-success"
-                          style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
-                        >
-                          ACTIVE
-                        </button>
-                      )}
-                      
-                      {/* <button
-                        onClick={() => handleHardDelete(b.brand_id)}
-                        className="btn btn-danger"
+                    ) : (
+                      <button
+                        onClick={() => handleSoftDelete(rowData.brand_id)}
+                        className="btn btn-success"
                         style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
                       >
-                        🗑️
-                      </button> */}
-
-
-
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination Footer */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.5rem', background: 'var(--bg-secondary)', borderTop: '1px solid var(--border-color)' }}>
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Halaman {page} dari {totalPages}
-          </span>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              onClick={() => setPage((p) => Math.max(p - 1, 1))}
-              disabled={page === 1}
-              className="btn btn-secondary"
-              style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}
-            >
-              Sebelumnya
-            </button>
-            <button
-              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-              disabled={page === totalPages}
-              className="btn btn-secondary"
-              style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}
-            >
-              Selanjutnya
-            </button>
-          </div>
+                        ACTIVE
+                      </button>
+                    )}
+                  </div>
+                )
+              }}
+              className="display table"
+            />
+          )}
         </div>
       </div>
 

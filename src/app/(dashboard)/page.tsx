@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import SalesLineChart from '@/components/SalesLineChart';
+import SimpleDataTable from '@/components/SimpleDataTable';
 
 export const revalidate = 0; // Disable cache for live stats
 
@@ -294,30 +295,22 @@ export default async function DashboardPage() {
             Penjualan Terakhir
           </h3>
           <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>No Invoice</th>
-                  <th>Pelanggan</th>
-                  <th>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentSales.length === 0 ? (
-                  <tr>
-                    <td colSpan={3} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Belum ada data penjualan</td>
-                  </tr>
-                ) : (
-                  recentSales.map((s) => (
-                    <tr key={s.sales_id}>
-                      <td>{s.sales_number}</td>
-                      <td>{s.customer_name_snapshot}</td>
-                      <td>{formatRupiah(Number(s.total_amount))}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+            {recentSales.length === 0 ? (
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem' }}>Belum ada data penjualan</div>
+            ) : (
+              <SimpleDataTable
+                data={recentSales.map(s => ({
+                  sales_number: s.sales_number,
+                  customer: s.customer_name_snapshot || 'Pelanggan Umum',
+                  total: formatRupiah(Number(s.total_amount))
+                }))}
+                columns={[
+                  { title: 'No Invoice', data: 'sales_number' },
+                  { title: 'Pelanggan', data: 'customer' },
+                  { title: 'Total', data: 'total' }
+                ]}
+              />
+            )}
           </div>
         </div>
 
@@ -327,30 +320,22 @@ export default async function DashboardPage() {
             Pembelian Terakhir
           </h3>
           <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>No Transaksi</th>
-                  <th>Supplier</th>
-                  <th>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentPurchases.length === 0 ? (
-                  <tr>
-                    <td colSpan={3} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Belum ada data pembelian</td>
-                  </tr>
-                ) : (
-                  recentPurchases.map((p) => (
-                    <tr key={p.purchase_id}>
-                      <td>{p.purchase_number}</td>
-                      <td>{p.supplier_name_snapshot}</td>
-                      <td>{formatRupiah(Number(p.total_amount))}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+            {recentPurchases.length === 0 ? (
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem' }}>Belum ada data pembelian</div>
+            ) : (
+              <SimpleDataTable
+                data={recentPurchases.map(p => ({
+                  purchase_number: p.purchase_number,
+                  supplier: p.supplier_name_snapshot || '-',
+                  total: formatRupiah(Number(p.total_amount))
+                }))}
+                columns={[
+                  { title: 'No Transaksi', data: 'purchase_number' },
+                  { title: 'Supplier', data: 'supplier' },
+                  { title: 'Total', data: 'total' }
+                ]}
+              />
+            )}
           </div>
         </div>
       </div>
