@@ -64,7 +64,7 @@ export default function AsyncSearchableSelect({
         if (opt) setSelectedLabel(opt.label);
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   // Fetch berdasarkan query
@@ -120,7 +120,7 @@ export default function AsyncSearchableSelect({
   }, []);
 
   return (
-    <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
+    <div ref={wrapperRef} style={{ position: 'relative', width: '100%', zIndex: open ? 9999 : 'auto' }}>
       <input
         type="text"
         className={className}
@@ -137,7 +137,7 @@ export default function AsyncSearchableSelect({
         <div
           style={{
             position: 'absolute',
-            zIndex: 20,
+            zIndex: 9999,
             width: '100%',
             marginTop: '0.25rem',
             background: 'var(--bg-primary)',
@@ -145,7 +145,7 @@ export default function AsyncSearchableSelect({
             borderRadius: 'var(--radius-md)',
             maxHeight: '260px',
             overflowY: 'auto',
-            boxShadow: '0 10px 24px rgba(0,0,0,0.08)',
+            boxShadow: '0 10px 24px rgba(0,0,0,0.3)',
           }}
         >
           {isLoading ? (

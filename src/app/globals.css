@@ -530,6 +530,10 @@ h6 {
   color: var(--warning);
 }
 
+table.dataTable td.text-center,
+table.dataTable th.text-center {
+  text-align: center !important;
+}
 
 @media print {
 
@@ -561,6 +565,14 @@ h6 {
   .print-preview,
   .print-preview * {
     visibility: visible;
+  }
+
+  /* Report pages use .print-section instead of .print-preview.  The
+     visibility:hidden rule above applies to every descendant of body, so
+     restore visibility for the report content before the browser prints it. */
+  .print-section,
+  .print-section * {
+    visibility: visible !important;
   }
 
   /* position:absolute → appears only on page 1 (not repeated like fixed) */

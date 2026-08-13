@@ -6,31 +6,69 @@ import DataTableClient from '@/components/DataTableClient';
 
 const PRINT_STYLE = `
 @media print {
-  aside, header, nav, .no-print { display: none !important; }
-  body, main, .app-container, .main-content {
-    margin: 0 !important; padding: 0 !important;
-    background: #fff !important; color: #000 !important; width: 100% !important;
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
   }
+
+  * {
+    box-sizing: border-box !important;
+  }
+
+  aside, header, nav, .no-print { display: none !important; }
+
+  html, body, #root, .app-container, .main-content, main {
+    all: unset !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+    transform: none !important;
+  }
+
   .card { border: none !important; box-shadow: none !important; padding: 0 !important; background: #fff !important; }
   .report-view { display: none !important; }
-  .print-section { display: block !important; }
+
+  .print-section {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
   .print-header { display: block !important; margin-bottom: 1.2rem; border-bottom: 2px solid #000; padding-bottom: 0.5rem; }
   .print-header h1 { font-size: 1.4rem !important; margin: 0 !important; color: #000 !important; }
-  .table { width: 100% !important; border-collapse: collapse !important; }
+
+  .table {
+    width: 100% !important;
+    table-layout: auto !important;
+    border-collapse: collapse !important;
+  }
   .table th, .table td { border: 1px solid #000 !important; padding: 0.4rem 0.5rem !important; color: #000 !important; font-size: 0.8rem !important; }
   .table th { background-color: #f0f0f0 !important; font-weight: 700; }
   .table tfoot tr td { background-color: #e8e8e8 !important; font-weight: 700; }
 }
+
 .print-section { display: none; }
 .print-header { display: none; }
 `;
-
 export default function ReturReport() {
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-
+  const [printDate, setPrintDate] = useState('');
+  useEffect(() => {
+    setPrintDate(
+      new Date().toLocaleString('id-ID', {
+        timeZone: 'Asia/Jakarta',
+      })
+    );
+  }, []);
   const getField = (item: any, key: string) => {
     switch (key) {
       case 'sales_return_number': return item.sales_return_number || item.salesReturnNumber || '';
@@ -143,15 +181,15 @@ export default function ReturReport() {
               <DataTableClient
                 data={dataForTable}
                 columns={[
-                  { title: 'No. Retur', data: '_sales_return_number' },
-                  { title: 'Tanggal & Waktu', data: '_date' },
-                  { title: 'No. Penjualan', data: '_sales_number' },
-                  { title: 'Customer', data: '_customer' },
-                  { title: 'Item Retur', data: '_total_items', className: 'text-right' },
-                  { title: 'Qty Retur', data: '_total_quantity', className: 'text-right' },
-                  { title: 'Operator', data: '_operator' },
+                  { title: 'No. Retur', data: '_sales_return_number', className: 'text-center' },
+                  { title: 'Tanggal & Waktu', data: '_date', className: 'text-center' },
+                  { title: 'No. Penjualan', data: '_sales_number', className: 'text-center' },
+                  { title: 'Customer', data: '_customer', className: 'text-center' },
+                  { title: 'Item Retur', data: '_total_items', className: 'text-center' },
+                  { title: 'Qty Retur', data: '_total_quantity', className: 'text-center' },
+                  { title: 'Operator', data: '_operator', className: 'text-center' },
                   { title: 'Status', data: '_status', className: 'text-center' },
-                  { title: 'Alasan Retur', data: '_reason' },
+                  { title: 'Alasan Retur', data: '_reason', className: 'text-center' },
                 ]}
                 slots={{
                   0: (_c, r) => <span style={{ fontWeight: 600 }}>{r._sales_return_number || '-'}</span>,
@@ -184,37 +222,39 @@ export default function ReturReport() {
             <h1>MITRA MOTOR</h1>
             <p style={{ margin: '0.2rem 0 0', fontSize: '0.9rem' }}>LAPORAN RETUR PENJUALAN</p>
             <p style={{ margin: 0, fontSize: '0.8rem', color: '#555' }}>
-              Periode: {start || 'Semua'} s/d {end || 'Semua'} &nbsp;|&nbsp; Dicetak: {new Date().toLocaleString('id-ID')}
+              Periode: {start || 'Semua'} s/d {end || 'Semua'}
+              &nbsp;|&nbsp;
+              Dicetak: {printDate}
             </p>
           </div>
           <table className="table">
             <thead>
               <tr>
                 <th style={{ width: '40px' }}>No</th>
-                <th>No. Retur</th>
-                <th>Tanggal &amp; Waktu</th>
-                <th>No. Penjualan</th>
-                <th>Customer</th>
-                <th style={{ textAlign: 'right' }}>Item</th>
-                <th style={{ textAlign: 'right' }}>Qty</th>
-                <th>Operator</th>
-                <th>Status</th>
-                <th>Alasan</th>
+                <th style={{ textAlign: 'center' }}>No. Retur</th>
+                <th style={{ textAlign: 'center' }}>Tanggal &amp; Waktu</th>
+                <th style={{ textAlign: 'center' }}>No. Penjualan</th>
+                <th style={{ textAlign: 'center' }}>Customer</th>
+                <th style={{ textAlign: 'center' }}>Item</th>
+                <th style={{ textAlign: 'center' }}>Qty</th>
+                <th style={{ textAlign: 'center' }}>Operator</th>
+                <th style={{ textAlign: 'center' }}>Status</th>
+                <th style={{ textAlign: 'center' }}>Alasan</th>
               </tr>
             </thead>
             <tbody>
               {data.map((row, idx) => (
                 <tr key={idx}>
                   <td>{idx + 1}</td>
-                  <td style={{ fontWeight: 600 }}>{getField(row, 'sales_return_number') || '-'}</td>
-                  <td>{getField(row, 'date') || '-'}</td>
-                  <td>{getField(row, 'sales_number') || '-'}</td>
-                  <td>{getField(row, 'customer') || '-'}</td>
-                  <td style={{ textAlign: 'right' }}>{Number(getField(row, 'total_items')).toLocaleString('id-ID')}</td>
-                  <td style={{ textAlign: 'right' }}>{Number(getField(row, 'total_quantity')).toLocaleString('id-ID')}</td>
-                  <td>{getField(row, 'operator') || '-'}</td>
-                  <td>{getField(row, 'status') || '-'}</td>
-                  <td>{getField(row, 'reason') || '-'}</td>
+                  <td style={{ fontWeight: 600, textAlign: 'center' }}>{getField(row, 'sales_return_number') || '-'}</td>
+                  <td style={{ textAlign: 'center' }}>{getField(row, 'date') || '-'}</td>
+                  <td style={{ textAlign: 'center' }}>{getField(row, 'sales_number') || '-'}</td>
+                  <td style={{ textAlign: 'center' }}>{getField(row, 'customer') || '-'}</td>
+                  <td style={{ textAlign: 'center' }}>{Number(getField(row, 'total_items')).toLocaleString('id-ID')}</td>
+                  <td style={{ textAlign: 'center' }}>{Number(getField(row, 'total_quantity')).toLocaleString('id-ID')}</td>
+                  <td style={{ textAlign: 'center' }}>{getField(row, 'operator') || '-'}</td>
+                  <td style={{ textAlign: 'center' }}>{getField(row, 'status') || '-'}</td>
+                  <td style={{ textAlign: 'center' }}>{getField(row, 'reason') || '-'}</td>
                 </tr>
               ))}
             </tbody>
