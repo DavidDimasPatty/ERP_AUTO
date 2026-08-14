@@ -38,7 +38,7 @@ export default function CustomerPage() {
   const [customerCode, setCustomerCode] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
-  const [contactPerson, setContactPerson] = useState('');
+  // const [contactPerson, setContactPerson] = useState('');
   const [cityName, setCityName] = useState('');
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
@@ -86,7 +86,7 @@ export default function CustomerPage() {
     setCustomerCode('');
     setCustomerName('');
     setPhone('');
-    setContactPerson('');
+    // setContactPerson('');
     setCityName('');
     setAddress('');
     setNotes('');
@@ -100,7 +100,7 @@ export default function CustomerPage() {
     setCustomerCode(item.customer_code || '');
     setCustomerName(item.customer_name || '');
     setPhone(item.phone || '');
-    setContactPerson(item.contact_person || '');
+    // setContactPerson(item.contact_person || '');
     setCityName(item.city_name || '');
     setAddress(item.address || '');
     setNotes(item.notes || '');
@@ -133,7 +133,7 @@ export default function CustomerPage() {
           customer_code: customerCode,
           customer_name: customerName,
           phone,
-          contact_person: contactPerson,
+          // contact_person: contactPerson,
           city_name: cityName,
           address,
           notes,
@@ -311,21 +311,23 @@ export default function CustomerPage() {
                       <label className="form-label">Nama Customer <span style={{ color: 'red' }}>*</span></label>
                       <input type="text" className="form-input" placeholder="Bengkel Maju Motor" value={customerName} onChange={(e) => setCustomerName(e.target.value)} required />
                     </div>
-                    <div className="form-group">
-                      <label className="form-label">Kota</label>
-                      <input type="text" className="form-input" placeholder="Bekasi" value={cityName} onChange={(e) => setCityName(e.target.value)} />
-                    </div>
+
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <div className="form-group">
                       <label className="form-label">No. Telepon</label>
                       <input type="text" className="form-input" placeholder="08123456789" value={phone} onChange={(e) => setPhone(e.target.value)} />
                     </div>
-                    <div className="form-group">
+                    {/* <div className="form-group">
                       <label className="form-label">Contact Person</label>
                       <input type="text" className="form-input" placeholder="Andi Wijaya" value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} />
-                    </div>
+                    </div>  */}
                   </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Kota</label>
+                  <input type="text" className="form-input" placeholder="Bekasi" value={cityName} onChange={(e) => setCityName(e.target.value)} />
                 </div>
 
                 <div className="form-group">

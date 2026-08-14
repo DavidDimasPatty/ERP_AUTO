@@ -214,7 +214,13 @@ export async function POST(req: NextRequest) {
       //   }
       // }
 
-      const changeAmount = payment.payment_method === 'CASH' ? tendered - totalAmount : 0;
+      let changeAmount = 0;
+      if (payment.payment_method === 'CASH') {
+        changeAmount = tendered - totalAmount;
+        if (changeAmount < 0) {
+          changeAmount = 0;
+        }
+      }
 
       //generate sales number
       const now = new Date();

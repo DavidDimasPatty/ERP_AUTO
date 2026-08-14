@@ -58,19 +58,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'status aktif dan nama merek wajib diisi' }, { status: 400 });
     }
 
-    const count = await prisma.m_brand.count({});
-    var newBrandCode = '';
-    if (count === 0) {
-      newBrandCode = 'MRK0001';
-    } else {
-      newBrandCode = 'MRK' + (count + 1).toString().padStart(5, '0');
-    }
-
-    const normalizedCode = newBrandCode.trim().toUpperCase();
+    let existing = await prisma.m_brand.findFirst({
+      orderBy: { brand_code: 'desc' },
+      take: 1
+    });
+    let normalizedCode = `MRK${(parseInt(existing?.brand_code?.substring(3) || '0') + 1).toString().padStart(4, '0')}`;
     const normalizedName = brand_name.trim().toUpperCase();
 
     // Check duplicate code
-    const existing = await prisma.m_brand.findUnique({
+    existing = await prisma.m_brand.findUnique({
       where: { brand_code: normalizedCode },
     });
 

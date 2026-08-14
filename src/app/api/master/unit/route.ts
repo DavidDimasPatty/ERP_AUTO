@@ -58,14 +58,15 @@ export async function POST(req: NextRequest) {
     }
 
     const normalizedName = unit_name.trim().toUpperCase();
-    let normalizedCode = unit_code?.trim().toUpperCase() || '';
+    let normalizedCode = "";
 
-    if (!normalizedCode) {
-      const count = await prisma.m_unit.count();
-      normalizedCode = `UNT${(count + 1).toString().padStart(5, '0')}`;
-    }
+    let existing = await prisma.m_unit.findFirst({
+      orderBy: { unit_code: 'desc' },
+      take: 1
+    });
+    normalizedCode = `UNT${(parseInt(existing?.unit_code?.substring(3) || '0') + 1).toString().padStart(5, '0')}`;
 
-    const existing = await prisma.m_unit.findUnique({
+    existing = await prisma.m_unit.findUnique({
       where: { unit_code: normalizedCode },
     });
 

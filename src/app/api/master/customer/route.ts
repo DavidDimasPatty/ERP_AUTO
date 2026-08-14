@@ -67,14 +67,15 @@ export async function POST(req: NextRequest) {
     }
 
     const normalizedName = customer_name.trim().toUpperCase();
-    let normalizedCode = customer_code?.trim().toUpperCase() || '';
+    let normalizedCode = "";
+    let existing = await prisma.m_customer.findFirst({
+      orderBy: { customer_code: 'desc' },
+      take: 1
+    });
+    normalizedCode = `CUS${(parseInt(existing?.customer_code?.substring(3) || '0') + 1).toString().padStart(5, '0')}`;
 
-    if (!normalizedCode) {
-      const count = await prisma.m_customer.count();
-      normalizedCode = `CUS${(count + 1).toString().padStart(5, '0')}`;
-    }
 
-    const existing = await prisma.m_customer.findUnique({
+    existing = await prisma.m_customer.findUnique({
       where: { customer_code: normalizedCode },
     });
 

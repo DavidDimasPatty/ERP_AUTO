@@ -483,7 +483,7 @@ export default function SalesTransactionPage() {
         {/* Informasi Transaksi Card */}
         <div className="card" style={{ padding: '1.5rem' }}>
           <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem' }}>Informasi Transaksi</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 0.4fr 1fr 1fr', gap: '1.5rem' }}>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
@@ -495,33 +495,7 @@ export default function SalesTransactionPage() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Customer (Opsional)</label>
-                <AsyncSearchableSelect
-                  value={selectedCustomer}
-                  fetchOptions={fetchCustomerOptions}
-                  resolveSelected={resolveCustomer}
-                  onChange={(value) => setSelectedCustomer(value)}
-                  placeholder="Ketik nama atau kode customer..."
-                  className="form-select form-input"
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Catatan (Opsional)</label>
-                <input type="text" className="form-input" value={notes}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^a-zA-Z0-9\s.,()\-_/]/g, "");
-                    setNotes(value);
-                  }}
-                  placeholder="Masukkan catatan..." />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', justifyContent: "center", alignItems: "center" }}>
               <div>
                 <label className="form-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Jenis Penjualan</label>
                 <span className="badge" style={{ background: 'rgba(99,102,241,0.1)', color: 'var(--primary)', padding: '0.4rem 0.8rem' }}>{activeTab}</span>
@@ -544,6 +518,34 @@ export default function SalesTransactionPage() {
                 <input onChange={(e) => setActiveTab(e.target.value)} value="ECERAN" checked={activeTab === "ECERAN"} type='radio' style={{ marginLeft: '1rem' }} name='jenis' /> <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem' }}>Penjualan Eceran</span> */}
               </div>
             </div>
+
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Catatan (Opsional)</label>
+                <input type="text" className="form-input" value={notes}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^a-zA-Z0-9\s.,()\-_/]/g, "");
+                    setNotes(value);
+                  }}
+                  placeholder="Masukkan catatan..." />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Customer (Opsional)</label>
+                <AsyncSearchableSelect
+                  value={selectedCustomer}
+                  fetchOptions={fetchCustomerOptions}
+                  resolveSelected={resolveCustomer}
+                  onChange={(value) => setSelectedCustomer(value)}
+                  placeholder="Ketik nama atau kode customer..."
+                  className="form-select form-input"
+                />
+              </div>
+            </div>
+
 
           </div>
         </div>
@@ -655,9 +657,12 @@ export default function SalesTransactionPage() {
                             <input
                               type="text"
                               className="form-input"
-                              value={rowData.unit_price === 0 ? '' : rowData.unit_price.toLocaleString('id-ID')}
+                              value={rowData.unit_price === 0 ? '' : Number(rowData.unit_price).toLocaleString('id-ID')}
                               onChange={(e) => updateCartPrice(rowData.product_id, e.target.value)}
-                              onBlur={() => validateCartPrice(rowData.product_id)}
+                              onBlur={(e) => {
+                                validateCartPrice(rowData.product_id)
+                                e.target.value = Number(rowData.unit_price).toLocaleString('id-ID')
+                              }}
                               style={{ width: '100px', padding: '0.4rem', textAlign: 'right' }}
                             />
                           </td>

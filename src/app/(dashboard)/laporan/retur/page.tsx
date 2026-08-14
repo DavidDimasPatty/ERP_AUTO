@@ -144,16 +144,16 @@ export default function ReturReport() {
         </div>
 
         {/* Filter */}
-        <div className="card no-print" style={{ padding: '1.25rem', display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="form-group" style={{ marginBottom: 0 }}>
+        <div className="card no-print" style={{ padding: '1.25rem', display: 'flex', gap: '3rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div className="form-group" style={{ marginBottom: 0, width: "20%" }}>
             <label className="form-label" style={{ fontSize: '0.8rem' }}>Dari Tanggal</label>
             <input type="date" className="form-input" value={start} onChange={e => setStart(e.target.value)} />
           </div>
-          <div className="form-group" style={{ marginBottom: 0 }}>
+          <div className="form-group" style={{ marginBottom: 0, width: "20%" }}>
             <label className="form-label" style={{ fontSize: '0.8rem' }}>Sampai Tanggal</label>
             <input type="date" className="form-input" value={end} onChange={e => setEnd(e.target.value)} />
           </div>
-          <button className="btn btn-primary" onClick={fetchReport} disabled={loading} style={{ height: '38px' }}>
+          <button className="btn btn-primary" onClick={fetchReport} disabled={loading} style={{}}>
             {loading ? 'Memuat...' : '🔍 Tampilkan'}
           </button>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>

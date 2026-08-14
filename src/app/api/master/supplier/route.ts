@@ -68,14 +68,16 @@ export async function POST(req: NextRequest) {
     }
 
     const normalizedName = supplier_name.trim().toUpperCase();
-    let normalizedCode = supplier_code?.trim().toUpperCase() || '';
+    let normalizedCode = '';
 
-    if (!normalizedCode) {
-      const count = await prisma.m_supplier.count();
-      normalizedCode = `SUP${(count + 1).toString().padStart(5, '0')}`;
-    }
+    let existing = await prisma.m_supplier.findFirst({
+      orderBy: { supplier_code: 'desc' },
+      take: 1
+    });
+    normalizedCode = `SUP${(parseInt(existing?.supplier_code?.substring(3) || '0') + 1).toString().padStart(5, '0')}`;
 
-    const existing = await prisma.m_supplier.findUnique({
+
+    existing = await prisma.m_supplier.findUnique({
       where: { supplier_code: normalizedCode },
     });
 
