@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
         OR: [
           { product_code: { contains: search } },
           { product_name: { contains: search } },
+          { product_description: { contains: search } },
           { brand: { brand_name: { contains: search } } },
           {
             AND: keywords.map((keyword) => ({

@@ -31,6 +31,11 @@ export async function GET(req: NextRequest) {
             },
           },
           {
+            product_description: {
+              contains: search,
+            },
+          },
+          {
             brand: {
               brand_name: {
                 contains: search,

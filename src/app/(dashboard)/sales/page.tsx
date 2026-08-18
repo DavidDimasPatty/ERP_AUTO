@@ -356,67 +356,183 @@ export default function SalesTransactionPage() {
 
         {/* Header & Breadcrumb */}
         <style jsx global>{`
-        @media print {
-          @page {
-            size: 9.5in 11in;
-            margin: 4mm 10mm;
-          }
+  @media print {
 
-          /* display:none truly removes element from layout flow (unlike visibility:hidden)
-             so the browser generates ZERO extra pages for the hidden form content. */
-          .sales-main-content {
-            display: none !important;
-          }
+    @page {
+      size: 120mm 130mm !important;
+       margin: 0 !important;
+    }
 
-          /* globals.css has body * { visibility: hidden } in @media print —
-             restore visibility for the receipt area */
-          .receipt-print-area,
-          .receipt-print-area * {
-            visibility: visible !important;
-          }
+    html,
+    body {
+      display: block !important;
+      width: 120mm !important;
+      height: 130mm !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
 
-          /* Receipt is now OUTSIDE .sales-main-content — show it in normal flow */
-          .receipt-print-area {
-            font-family: "Courier New", Courier, monospace !important;
-            display: block !important;
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            max-width: 9.5in !important;
-            height: auto !important;
-            overflow: visible !important;
-            background: #fff !important;
-            color: #000 !important;
-            padding: 0 !important;
-            box-sizing: border-box !important;
-          }
+    body * {
+      visibility: hidden !important;
+    }
 
-          .receipt-print-area table {
-            width: 100% !important;
-            border-collapse: collapse !important;
-            table-layout: auto !important;
-            margin-top: 10px !important;
-            margin-bottom: 10px !important;
-          }
-          .receipt-print-area th,
-          .receipt-print-area td {
-            border: 1px solid #000 !important;
-            padding: 4px 8px !important;
-            font-size: 12px !important;
-            white-space: normal !important;
-            word-break: break-word !important;
-          }
-          .receipt-print-area h2,
-          .receipt-print-area h3,
-          .receipt-print-area p,
-          .receipt-print-area span,
-          .receipt-print-area strong {
-            color: #000 !important;
-          }
-        }
-      `}
-        </style>
+    .sales-main-content {
+      display: none !important;
+    }
+
+    .receipt-print-area,
+    .receipt-print-area * {
+      visibility: visible !important;
+    }
+
+    .receipt-print-area {
+      display: block !important;
+
+     position: fixed !important;
+      left: 0 !important;
+      top: 0 !important;
+
+      width: 120mm !important;
+      max-width: 120mm !important;
+      box-sizing: border-box !important;
+
+      margin: 0 !important;
+      padding: 0 !important;
+
+      overflow: visible !important;
+
+      background: #fff !important;
+      color: #000 !important;
+
+      font-family: "Courier New", Courier, monospace !important;
+      font-size: 11px !important;
+      line-height: 1.25 !important;
+
+    }
+
+    .receipt-print-area > div {
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 4mm 3mm !important;
+
+      box-sizing: border-box !important;
+    }
+
+    /* HEADER */
+    .receipt-print-area h2 {
+      margin: 0 0 3px 0 !important;
+      padding: 0 !important;
+
+      font-family: "Courier New", Courier, monospace !important;
+      font-size: 16px !important;
+      font-weight: bold !important;
+
+      text-align: center !important;
+      line-height: 1.2 !important;
+    }
+
+    .receipt-print-area p {
+      margin: 2px 0 !important;
+      padding: 0 !important;
+
+      font-size: 10px !important;
+      line-height: 1.25 !important;
+    }
+
+    .receipt-print-area hr {
+      border: 0 !important;
+      border-top: 1px dashed #000 !important;
+
+      margin: 5px 0 !important;
+      padding: 0 !important;
+    }
+
+    /* TABLE */
+   .receipt-print-area table {
+      width: 100% !important;
+      margin: 7px 0 !important;
+      padding: 0 !important;
+
+      border-collapse: collapse !important;
+      table-layout: fixed !important;
+    }
+
+    .receipt-print-area th,
+    .receipt-print-area td {
+      border: 1px solid #000 !important;
+      padding: 4px 5px !important;
+
+      font-size: 10px !important;
+      line-height: 1.2 !important;
+
+      vertical-align: middle !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+    }
+
+ .receipt-print-area th:first-child,
+  .receipt-print-area td:first-child {
+    width: 44% !important;
+    text-align: left !important;
+  }
+
+  .receipt-print-area th:nth-child(2),
+  .receipt-print-area td:nth-child(2) {
+    width: 12% !important;
+    text-align: center !important;
+  }
+
+  .receipt-print-area th:nth-child(3),
+  .receipt-print-area td:nth-child(3) {
+    width: 22% !important;
+    text-align: right !important;
+  }
+
+  .receipt-print-area th:nth-child(4),
+  .receipt-print-area td:nth-child(4) {
+    width: 22% !important;
+    text-align: right !important;
+  }
+
+    /* TOTAL SECTION */
+    .receipt-print-area .receipt-summary {
+      margin-top: 7px !important;
+
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 3px !important;
+    }
+
+    .receipt-print-area .receipt-row {
+      display: flex !important;
+
+      justify-content: space-between !important;
+
+      width: 100% !important;
+
+      font-size: 10px !important;
+      line-height: 1.3 !important;
+    }
+
+    .receipt-print-area .receipt-total {
+      font-size: 12px !important;
+      font-weight: bold !important;
+
+      margin-top: 3px !important;
+      padding-top: 3px !important;
+
+      border-top: 1px dashed #000 !important;
+    }
+
+    .receipt-print-area .receipt-footer {
+      margin-top: 10px !important;
+
+      text-align: center !important;
+
+      font-size: 9px !important;
+    }
+  }
+`}</style>
 
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -820,7 +936,14 @@ export default function SalesTransactionPage() {
       {receiptData && (
         <div
           className="receipt-print-area"
-          style={{ display: isPrintReady ? 'block' : 'none', position: 'absolute', left: '-9999px', top: 0, width: '1px', height: '1px', overflow: 'hidden' }}
+          style={{
+            display: isPrintReady ? 'block' : 'none',
+            position: 'absolute',
+            left: '-9999px',
+            top: 0,
+            width: '80mm',
+            overflow: 'hidden'
+          }}
         >
           <div style={{ width: '100%', padding: '1rem', background: '#fff', color: '#000' }}>
             <h2 style={{ margin: '0 0 0.5rem' }}>MITRA MOTOR </h2>
@@ -864,7 +987,7 @@ export default function SalesTransactionPage() {
                 <span>Diskon</span>
                 <strong>Rp {Number(receiptData.discount_amount || 0).toLocaleString('id-ID')}</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.05rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Total</span>
                 <strong>Rp {Number(receiptData.total_amount).toLocaleString('id-ID')}</strong>
               </div>
@@ -878,6 +1001,11 @@ export default function SalesTransactionPage() {
                   <strong>Rp {Number(receiptData.payments[0].change_amount).toLocaleString('id-ID')}</strong>
                 </div>
               )}
+            </div>
+            <hr />
+            <hr />
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <strong style={{ textAlign: 'center', fontSize: "0.4rem" }}>Terima kasih sudah berbelanja di Mitra Motor</strong>
             </div>
           </div>
         </div>
