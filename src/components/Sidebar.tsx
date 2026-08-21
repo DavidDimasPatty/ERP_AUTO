@@ -43,7 +43,7 @@ export default function Sidebar({ user, menus }: SidebarProps) {
     if (route === '/') {
       return pathname === '/';
     }
-    return pathname.startsWith(route);
+    return pathname == route;
   };
 
   return (

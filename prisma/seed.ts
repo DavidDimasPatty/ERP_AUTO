@@ -87,10 +87,11 @@ async function main() {
     { menu_code: 'SALES', menu_name: 'Penjualan', route_path: '/sales', sort_order: 10 },
     { menu_code: 'RETURN', menu_name: 'Retur Penjualan', route_path: '/returns', sort_order: 11 },
     { menu_code: 'REPORT', menu_name: 'Report', route_path: null, sort_order: 12 },
-    { menu_code: 'REPORT_PURCHASE', menu_name: 'Report Purchase', route_path: '/laporan/purchase', sort_order: 13, parent_code: "REPORT" },
-    { menu_code: 'REPORT_SALE', menu_name: 'Report Sale', route_path: '/laporan/sales', sort_order: 14, parent_code: "REPORT" },
-    { menu_code: 'REPORT_RETUR_SALE', menu_name: 'Report Retur', route_path: '/laporan/retur', sort_order: 15, parent_code: "REPORT" },
-    { menu_code: 'STOCK_OPNAME', menu_name: 'Stock Opname', route_path: '/stock-opname', sort_order: 16 },
+    { menu_code: 'REPORT_PURCHASE', menu_name: 'Laporan Pembelian', route_path: '/laporan/purchase', sort_order: 13, parent_code: "REPORT" },
+    { menu_code: 'REPORT_SALE', menu_name: 'Laporan Penjualan', route_path: '/laporan/sales', sort_order: 14, parent_code: "REPORT" },
+    { menu_code: 'REPORT_SALE_PRODUCT', menu_name: 'Laporan Penjualan per Produk', route_path: '/laporan/sales-product', sort_order: 15, parent_code: "REPORT" },
+    { menu_code: 'REPORT_RETUR_SALE', menu_name: 'Laporan Retur Penjualan', route_path: '/laporan/retur', sort_order: 16, parent_code: "REPORT" },
+    { menu_code: 'STOCK_OPNAME', menu_name: 'Stock Opname', route_path: '/stock-opname', sort_order: 17 },
   ];
 
   // Insert parents first

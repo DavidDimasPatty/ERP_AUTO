@@ -63,6 +63,11 @@ export default function PurchaseReport() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [printDate, setPrintDate] = useState('');
+
+  // Selected Purchase Detail State
+  const [selectedPurchaseDetail, setSelectedPurchaseDetail] = useState<any | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
   useEffect(() => {
     setPrintDate(
       new Date().toLocaleString('id-ID', {
@@ -70,20 +75,23 @@ export default function PurchaseReport() {
       })
     );
   }, []);
+
   const getField = (item: any, key: string) => {
     switch (key) {
+      case 'purchase_id': return item.purchase_id || item.purchaseId || '';
       case 'purchase_number': return item.purchase_number || item.purchaseNumber || '';
       case 'date': return item.date || item.purchase_datetime || '';
-      case 'supplier': return item.supplier || item.supplier_name || '';
+      case 'supplier': return item.supplier || item.supplier_name || item.supplier_name_snapshot || '';
       case 'invoice_no': return item.invoice_no || item.supplier_invoice_number || '';
       case 'total': return Number(item.total || item.total_amount || 0);
-      case 'user': return item.user || item.created_by_name || '';
+      case 'user': return item.user || item.created_by_name || item.created_by_name_snapshot || '';
       default: return item[key] || '';
     }
   };
 
   const dataForTable = data.map((item) => ({
     ...item,
+    _purchase_id: getField(item, 'purchase_id'),
     _purchase_number: getField(item, 'purchase_number'),
     _date: getField(item, 'date'),
     _supplier: getField(item, 'supplier'),
@@ -110,6 +118,30 @@ export default function PurchaseReport() {
   }, [start, end]);
 
   useEffect(() => { fetchReport(); }, []);
+
+  const handleSelectPurchase = async (row: any) => {
+    setDetailLoading(true);
+    setSelectedPurchaseDetail(null);
+    try {
+      let purchaseObj = null;
+      if (row._purchase_id || row.purchase_id) {
+        const pId = row._purchase_id || row.purchase_id;
+        const res = await fetch(`/api/purchase/${pId}`);
+        if (res.ok) purchaseObj = await res.json();
+      }
+
+      if (purchaseObj) {
+        setSelectedPurchaseDetail(purchaseObj);
+      } else {
+        setSelectedPurchaseDetail(row);
+      }
+    } catch (e) {
+      console.error('Error fetching purchase detail:', e);
+      setSelectedPurchaseDetail(row);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   const handleExportCSV = () => {
     const headers = ['No. Pembelian', 'Tanggal & Waktu', 'Supplier', 'No. Faktur Supplier', 'Total (Rp)', 'Pembuat'];
@@ -159,6 +191,91 @@ export default function PurchaseReport() {
           </div>
         </div>
 
+        {/* Detail Transaksi Pembelian View (If selected) */}
+        {detailLoading && (
+          <div className="card no-print" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+            Memuat detail transaksi pembelian...
+          </div>
+        )}
+
+        {selectedPurchaseDetail && !detailLoading && (
+          <div className="card no-print" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', border: '2px solid var(--primary)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.1rem', color: 'var(--primary)', margin: 0, fontWeight: 700 }}>
+                Rincian Transaksi Pembelian: {selectedPurchaseDetail.purchase_number}
+              </h3>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setSelectedPurchaseDetail(null)}
+                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+              >
+                ✖ Tutup Detail
+              </button>
+            </div>
+
+            {/* Info Summary Grid */}
+            <div style={{ background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', padding: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: '0.75rem', fontSize: '0.9rem' }}>
+                <div style={{ color: 'var(--text-secondary)' }}>Nomor Pembelian</div>
+                <div style={{ fontWeight: 600 }}>: {selectedPurchaseDetail.purchase_number}</div>
+                <div style={{ color: 'var(--text-secondary)' }}>Tanggal &amp; Waktu</div>
+                <div style={{ fontWeight: 500 }}>: {selectedPurchaseDetail.purchase_datetime ? new Date(selectedPurchaseDetail.purchase_datetime).toLocaleString('id-ID') : '-'}</div>
+                <div style={{ color: 'var(--text-secondary)' }}>Supplier</div>
+                <div style={{ fontWeight: 500 }}>: {selectedPurchaseDetail.supplier_name_snapshot || selectedPurchaseDetail.supplier?.supplier_name || '-'}</div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: '0.75rem', fontSize: '0.9rem' }}>
+                <div style={{ color: 'var(--text-secondary)' }}>No. Faktur Supplier</div>
+                <div style={{ fontWeight: 500 }}>: {selectedPurchaseDetail.supplier_invoice_number || '-'}</div>
+                <div style={{ color: 'var(--text-secondary)' }}>Total Pembelian</div>
+                <div style={{ fontWeight: 600, color: 'var(--primary)' }}>: Rp {Number(selectedPurchaseDetail.total_amount || 0).toLocaleString('id-ID')}</div>
+                <div style={{ color: 'var(--text-secondary)' }}>Pembuat / Operator</div>
+                <div style={{ fontWeight: 500 }}>: {selectedPurchaseDetail.created_by_name_snapshot || selectedPurchaseDetail.creator?.full_name || '-'}</div>
+              </div>
+            </div>
+
+            {/* Product Details Table */}
+            <div>
+              <h4 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '0.75rem', fontWeight: 600 }}>
+                Detail Produk Pembelian
+              </h4>
+              <div className="table-container" style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', overflowX: 'auto' }}>
+                <table className="table" style={{ width: '100%', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg-tertiary)' }}>
+                      <th style={{ width: '40px', textAlign: 'center' }}>No</th>
+                      <th style={{ textAlign: 'center' }}>Kode Produk</th>
+                      <th>Nama Produk</th>
+                      <th style={{ textAlign: 'center' }}>Satuan</th>
+                      <th style={{ textAlign: 'right' }}>Qty</th>
+                      <th style={{ textAlign: 'right' }}>Harga Beli</th>
+                      <th style={{ textAlign: 'right' }}>Total Produk</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(selectedPurchaseDetail.details || []).map((det: any, idx: number) => {
+                      const qty = det.quantity || 0;
+                      const price = Number(det.purchase_unit_price || det.unit_price || 0);
+                      const lineTotal = Number(det.line_total || qty * price);
+                      return (
+                        <tr key={idx}>
+                          <td style={{ textAlign: 'center' }}>{idx + 1}</td>
+                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{det.product_code_snapshot || det.product?.product_code || '-'}</td>
+                          <td style={{ fontWeight: 600 }}>{det.product_name_snapshot || det.product?.product_name || '-'}</td>
+                          <td style={{ textAlign: 'center' }}>{det.unit_name_snapshot || det.product?.unit?.unit_name || 'PCS'}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 600 }}>{qty}</td>
+                          <td style={{ textAlign: 'right' }}>Rp {price.toLocaleString('id-ID')}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 600 }}>Rp {lineTotal.toLocaleString('id-ID')}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* DataTable view (screen only) */}
         <div className="card report-view" style={{ padding: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -180,10 +297,20 @@ export default function PurchaseReport() {
                   { title: 'No. Faktur Supplier', data: '_invoice_no', className: 'text-center' },
                   { title: 'Total (Rp)', data: '_total', className: 'text-center' },
                   { title: 'Pembuat', data: '_user', className: 'text-center' },
+                  { title: 'Aksi', data: null, orderable: false, searchable: false, className: 'text-center' },
                 ]}
                 slots={{
                   0: (_c, r) => <span style={{ fontWeight: 600 }}>{r._purchase_number || '-'}</span>,
                   4: (_c, r) => <span style={{ fontWeight: 600 }}>{Number(r._total).toLocaleString('id-ID')}</span>,
+                  6: (_c, r) => (
+                    <button
+                      className="btn btn-primary"
+                      style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem' }}
+                      onClick={() => handleSelectPurchase(r)}
+                    >
+                      Pilih
+                    </button>
+                  ),
                 }}
                 className="display table"
               >
@@ -193,6 +320,7 @@ export default function PurchaseReport() {
                     <td style={{ textAlign: 'right', padding: '1rem', color: 'var(--primary)', fontSize: '1.05rem' }}>
                       Rp {totalAmount.toLocaleString('id-ID')}
                     </td>
+                    <td></td>
                     <td></td>
                   </tr>
                 </tfoot>

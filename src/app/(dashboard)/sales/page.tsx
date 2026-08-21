@@ -695,14 +695,24 @@ export default function SalesTransactionPage() {
                     style={{ width: '100%', padding: '0.65rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
                   >
                     {activeTab === 'BENGKEL' ? (
-                      [3, 4, 5].map((lvl) => (
-                        <option key={lvl} value={lvl.toString()}>{`Harga ${lvl}`}</option>
-                      ))
+                      [1, 2, 3, 4, 5].map((lvl) => {
+                        if (lvl == 4) {
+                          return <option key={lvl} value={lvl.toString()} selected>{`Harga ${lvl}`}</option>
+                        }
+                        else {
+                          return <option key={lvl} value={lvl.toString()}>{`Harga ${lvl}`}</option>
+                        }
+                      })
 
                     ) : (
-                      [1, 2, 3, 4, 5].map((lvl) => (
-                        <option key={lvl} value={lvl.toString()}>{`Harga ${lvl}`}</option>
-                      ))
+                      [1, 2, 3, 4, 5].map((lvl) => {
+                        if (lvl == 2) {
+                          return <option key={lvl} value={lvl.toString()} selected>{`Harga ${lvl}`}</option>
+                        }
+                        else {
+                          return <option key={lvl} value={lvl.toString()}>{`Harga ${lvl}`}</option>
+                        }
+                      })
                     )}
 
                   </select>

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { exportToCSV } from '@/lib/exportExcel';
 import DataTableClient from '@/components/DataTableClient';
+
 const PRINT_STYLE = `
 @media print {
   @page {
@@ -62,6 +63,11 @@ export default function SalesReport() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [printDate, setPrintDate] = useState('');
+
+  // Selected Transaction Detail State
+  const [selectedSaleDetail, setSelectedSaleDetail] = useState<any | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
   const getField = (item: any, key: string) => {
     switch (key) {
       case 'sales_number': return item.sales_number || item.salesNumber || '';
@@ -105,11 +111,43 @@ export default function SalesReport() {
         const json = await res.json();
         if (Array.isArray(json)) setData(json);
       }
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }, [start, end]);
 
   useEffect(() => { fetchReport(); }, []);
+
+  const handleSelectSale = async (row: any) => {
+    setDetailLoading(true);
+    setSelectedSaleDetail(null);
+    try {
+      let salesObj = null;
+      if (row.sales_id) {
+        const res = await fetch(`/api/sales/${row.sales_id}`);
+        if (res.ok) salesObj = await res.json();
+      }
+      
+      if (!salesObj && row._sales_number) {
+        const res = await fetch(`/api/returns/check-sales/${encodeURIComponent(row._sales_number)}`);
+        if (res.ok) salesObj = await res.json();
+      }
+
+      if (salesObj) {
+        setSelectedSaleDetail(salesObj);
+      } else {
+        // Fallback to row data
+        setSelectedSaleDetail(row);
+      }
+    } catch (e) {
+      console.error('Error fetching sales detail:', e);
+      setSelectedSaleDetail(row);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   const handleExportCSV = () => {
     const headers = ['No. Penjualan', 'Tanggal & Waktu', 'Jenis', 'Customer', 'Kasir', 'Subtotal (Rp)', 'Diskon (Rp)', 'Total (Rp)', 'Status'];
@@ -122,6 +160,7 @@ export default function SalesReport() {
   };
 
   const handlePrint = () => window.print();
+
   useEffect(() => {
     setPrintDate(
       new Date().toLocaleString('id-ID', {
@@ -129,6 +168,7 @@ export default function SalesReport() {
       })
     );
   }, []);
+
   return (
     <>
       <style jsx global>{PRINT_STYLE}</style>
@@ -153,7 +193,7 @@ export default function SalesReport() {
             <label className="form-label" style={{ fontSize: '0.8rem' }}>Sampai Tanggal</label>
             <input type="date" className="form-input" value={end} onChange={e => setEnd(e.target.value)} />
           </div>
-          <button className="btn btn-primary" onClick={fetchReport} disabled={loading} style={{}}>
+          <button className="btn btn-primary" onClick={fetchReport} disabled={loading}>
             {loading ? 'Memuat...' : '🔍 Tampilkan'}
           </button>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
@@ -165,6 +205,99 @@ export default function SalesReport() {
             </button>
           </div>
         </div>
+
+        {/* Detail Transaksi View (If selected) */}
+        {detailLoading && (
+          <div className="card no-print" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+            Memuat detail transaksi...
+          </div>
+        )}
+
+        {selectedSaleDetail && !detailLoading && (
+          <div className="card no-print" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', border: '2px solid var(--primary)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.1rem', color: 'var(--primary)', margin: 0, fontWeight: 700 }}>
+                Rincian Transaksi: {selectedSaleDetail.sales_number}
+              </h3>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setSelectedSaleDetail(null)}
+                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+              >
+                ✖ Tutup Detail
+              </button>
+            </div>
+
+            {/* Info Summary Grid */}
+            <div style={{ background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', padding: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: '0.75rem', fontSize: '0.9rem' }}>
+                <div style={{ color: 'var(--text-secondary)' }}>Nomor Transaksi</div>
+                <div style={{ fontWeight: 600 }}>: {selectedSaleDetail.sales_number}</div>
+                <div style={{ color: 'var(--text-secondary)' }}>Tanggal Transaksi</div>
+                <div style={{ fontWeight: 500 }}>: {selectedSaleDetail.sales_datetime ? new Date(selectedSaleDetail.sales_datetime).toLocaleString('id-ID') : '-'}</div>
+                <div style={{ color: 'var(--text-secondary)' }}>Jenis Penjualan</div>
+                <div style={{ fontWeight: 500 }}>: {selectedSaleDetail.sales_type || 'BENGKEL'}</div>
+                <div style={{ color: 'var(--text-secondary)' }}>Customer</div>
+                <div style={{ fontWeight: 500 }}>: {selectedSaleDetail.customer_name_snapshot || selectedSaleDetail.customer?.customer_name || 'Pelanggan Umum'}</div>
+                <div style={{ color: 'var(--text-secondary)' }}>Kasir</div>
+                <div style={{ fontWeight: 500 }}>: {selectedSaleDetail.cashier_name_snapshot || selectedSaleDetail.cashier?.full_name || '-'}</div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: '0.75rem', fontSize: '0.9rem' }}>
+                <div style={{ color: 'var(--text-secondary)' }}>Subtotal</div>
+                <div style={{ fontWeight: 500 }}>: Rp {Number(selectedSaleDetail.subtotal || 0).toLocaleString('id-ID')}</div>
+                <div style={{ color: 'var(--text-secondary)' }}>Diskon</div>
+                <div style={{ fontWeight: 500 }}>: Rp {Number(selectedSaleDetail.discount_amount || 0).toLocaleString('id-ID')}</div>
+                <div style={{ color: 'var(--text-secondary)' }}>Total</div>
+                <div style={{ fontWeight: 600, color: 'var(--primary)' }}>: Rp {Number(selectedSaleDetail.total_amount || 0).toLocaleString('id-ID')}</div>
+                <div style={{ color: 'var(--text-secondary)' }}>Status Pembayaran</div>
+                <div style={{ fontWeight: 500 }}>: {selectedSaleDetail.payment_status || 'PAID'}</div>
+                <div style={{ color: 'var(--text-secondary)' }}>Status Transaksi</div>
+                <div style={{ fontWeight: 500 }}>: {selectedSaleDetail.transaction_status || 'COMPLETED'}</div>
+              </div>
+            </div>
+
+            {/* Product Details Table */}
+            <div>
+              <h4 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '0.75rem', fontWeight: 600 }}>
+                Detail Produk yang Dibeli
+              </h4>
+              <div className="table-container" style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', overflowX: 'auto' }}>
+                <table className="table" style={{ width: '100%', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg-tertiary)' }}>
+                      <th style={{ width: '40px', textAlign: 'center' }}>No</th>
+                      <th style={{ textAlign: 'center' }}>Kode Produk</th>
+                      <th>Nama Produk</th>
+                      <th style={{ textAlign: 'center' }}>Satuan</th>
+                      <th style={{ textAlign: 'right' }}>Qty</th>
+                      <th style={{ textAlign: 'right' }}>Harga Jual</th>
+                      <th style={{ textAlign: 'right' }}>Total Produk</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(selectedSaleDetail.details || []).map((det: any, idx: number) => {
+                      const qty = det.quantity || det.sold_quantity || 0;
+                      const price = Number(det.unit_price || 0);
+                      const lineTotal = Number(det.line_total || qty * price);
+                      return (
+                        <tr key={idx}>
+                          <td style={{ textAlign: 'center' }}>{idx + 1}</td>
+                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{det.product_code_snapshot || det.product?.product_code || '-'}</td>
+                          <td style={{ fontWeight: 600 }}>{det.product_name_snapshot || det.product?.product_name || '-'}</td>
+                          <td style={{ textAlign: 'center' }}>{det.unit_name_snapshot || det.product?.unit?.unit_name || 'PCS'}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 600 }}>{qty}</td>
+                          <td style={{ textAlign: 'right' }}>Rp {price.toLocaleString('id-ID')}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 600 }}>Rp {lineTotal.toLocaleString('id-ID')}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* DataTable view (screen only) */}
         <div className="card report-view" style={{ padding: '1.5rem' }}>
@@ -190,6 +323,7 @@ export default function SalesReport() {
                   { title: 'Diskon (Rp)', data: '_discount', className: 'text-center' },
                   { title: 'Total (Rp)', data: '_total', className: 'text-center' },
                   { title: 'Status', data: '_status', className: 'text-center' },
+                  { title: 'Aksi', data: null, orderable: false, searchable: false, className: 'text-center' },
                 ]}
                 slots={{
                   2: (_c, r) => <span className="badge" style={{ background: 'rgba(99,102,241,0.1)', color: 'var(--primary)' }}>{r._type || 'BENGKEL'}</span>,
@@ -197,6 +331,15 @@ export default function SalesReport() {
                   6: (_c, r) => Number(r._discount).toLocaleString('id-ID'),
                   7: (_c, r) => <span style={{ fontWeight: 600 }}>{Number(r._total).toLocaleString('id-ID')}</span>,
                   8: (_c, r) => <span className="badge badge-success">{r._status || 'PAID'}</span>,
+                  9: (_c, r) => (
+                    <button
+                      className="btn btn-primary"
+                      style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem' }}
+                      onClick={() => handleSelectSale(r)}
+                    >
+                      Pilih
+                    </button>
+                  ),
                 }}
                 className="display table"
               >
@@ -206,6 +349,7 @@ export default function SalesReport() {
                     <td style={{ textAlign: 'right', padding: '1rem' }}>Rp {totalSubtotal.toLocaleString('id-ID')}</td>
                     <td style={{ textAlign: 'right', padding: '1rem' }}>Rp {totalDiscount.toLocaleString('id-ID')}</td>
                     <td style={{ textAlign: 'right', padding: '1rem', color: 'var(--primary)', fontSize: '1.05rem' }}>Rp {grandTotal.toLocaleString('id-ID')}</td>
+                    <td></td>
                     <td></td>
                   </tr>
                 </tfoot>

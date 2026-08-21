@@ -12,13 +12,23 @@ export default function LaporanMenu() {
           </Link>
         </li>
         <li>
-          <Link href="/dashboard/laporan/sales" className="btn btn-primary" style={{ width: '100%' }}>
+          <Link href="/laporan/sales" className="btn btn-primary" style={{ width: '100%' }}>
             Laporan Penjualan
           </Link>
         </li>
         <li>
-          <Link href="/dashboard/laporan/stock" className="btn btn-primary" style={{ width: '100%' }}>
-            Laporan Stok
+          <Link href="/laporan/sales-product" className="btn btn-primary" style={{ width: '100%' }}>
+            Laporan Penjualan per Produk
+          </Link>
+        </li>
+        <li>
+          <Link href="/laporan/retur" className="btn btn-primary" style={{ width: '100%' }}>
+            Laporan Retur Penjualan
+          </Link>
+        </li>
+        <li>
+          <Link href="/laporan/purchase" className="btn btn-primary" style={{ width: '100%' }}>
+            Laporan Pembelian
           </Link>
         </li>
       </ul>
