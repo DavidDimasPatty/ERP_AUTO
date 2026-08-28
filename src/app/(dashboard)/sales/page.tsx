@@ -623,6 +623,7 @@ export default function SalesTransactionPage() {
                     return;
                   }
                   setActiveTab(nextTab);
+                  setSelectedPriceLevel('3'); // BENGKEL default harga 3
                 }}
             >
               Penjualan Bengkel
@@ -634,7 +635,7 @@ export default function SalesTransactionPage() {
                 color: activeTab === 'ECERAN' ? 'var(--primary)' : 'var(--text-secondary)',
                 fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', fontSize: '0.85rem'
               }}
-              onClick={() => setActiveTab('ECERAN')}
+              onClick={() => { setActiveTab('ECERAN'); setSelectedPriceLevel('1'); }}
             >
               Penjualan Eceran
             </button>
