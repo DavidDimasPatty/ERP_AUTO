@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Swal from 'sweetalert2';
 import AsyncSearchableSelect, { AsyncSelectOption } from '@/components/AsyncSearchableSelect';
 import SearchableSelect from '@/components/SearchableSelect';
+import * as ThermalPrint from '@/lib/thermalPrint';
 
 
 export default function SalesTransactionPage() {
@@ -34,6 +35,7 @@ export default function SalesTransactionPage() {
   const [successMsg, setSuccessMsg] = useState('');
   const [receiptData, setReceiptData] = useState<any | null>(null);
   const [isPrintReady, setIsPrintReady] = useState(false);
+  const [qzStatus, setQzStatus] = useState<'idle' | 'printing' | 'done' | 'error'>('idle');
 
   // Async fetch untuk customer dropdown
   const fetchCustomerOptions = useCallback(async (search: string): Promise<AsyncSelectOption[]> => {
@@ -79,21 +81,39 @@ export default function SalesTransactionPage() {
     return null;
   }, [productsCache]);
 
-  useEffect(() => {
-    if (isPrintReady && receiptData) {
-      console.log(receiptData);
-      console.log(document.querySelector(".receipt-print-area"));
+  // Fungsi print via server-side ESC/P dengan fallback ke window.print()
+  const printWithQZ = useCallback(async (data: any) => {
+    setQzStatus('printing');
+    try {
+      await ThermalPrint.printReceipt(data);
+      setQzStatus('done');
+      // Setelah print selesai, reset receipt
+      setIsPrintReady(false);
+      setReceiptData(null);
+    } catch (err) {
+      console.warn('[Thermal Print] Gagal, fallback ke window.print():', err);
+      setQzStatus('error');
+      // Fallback: tampilkan receipt area lalu print via browser
+      setIsPrintReady(true);
       const printTimeout = window.setTimeout(() => {
         window.print();
       }, 500);
       return () => window.clearTimeout(printTimeout);
     }
-  }, [isPrintReady, receiptData]);
+  }, []);
+
+  useEffect(() => {
+    if (receiptData && !isPrintReady) {
+      printWithQZ(receiptData);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [receiptData]);
 
   useEffect(() => {
     const afterPrint = () => {
       setIsPrintReady(false);
       setReceiptData(null);
+      setQzStatus('idle');
     };
     window.addEventListener('afterprint', afterPrint);
     return () => window.removeEventListener('afterprint', afterPrint);
@@ -331,8 +351,8 @@ export default function SalesTransactionPage() {
 
       setSuccessMsg(`Transaksi berhasil disimpan dengan No: ${data.sales_number}`);
       if (cetak) {
+        // Set receiptData saja; useEffect akan trigger printWithQZ
         setReceiptData(data);
-        setIsPrintReady(true);
       }
       // Reset form
       setCart([]);
@@ -359,21 +379,23 @@ export default function SalesTransactionPage() {
   @media print {
 
     @page {
-      size: 120mm 130mm !important;
+       size: 75mm auto !important;
        margin: 0 !important;
     }
 
     html,
     body {
       display: block !important;
-      width: 120mm !important;
-      height: 130mm !important;
+      width: 75mm !important;
+      height: auto !important;
       margin: 0 !important;
       padding: 0 !important;
     }
 
     body * {
       visibility: hidden !important;
+      font-family: sans-serif;
+      
     }
 
     .sales-main-content {
@@ -392,8 +414,8 @@ export default function SalesTransactionPage() {
       left: 0 !important;
       top: 0 !important;
 
-      width: 120mm !important;
-      max-width: 120mm !important;
+      width: 90mm !important;
+      max-width: 90mm !important;
       box-sizing: border-box !important;
 
       margin: 0 !important;
@@ -404,8 +426,7 @@ export default function SalesTransactionPage() {
       background: #fff !important;
       color: #000 !important;
 
-      font-family: "Courier New", Courier, monospace !important;
-      font-size: 11px !important;
+      font-size: 11pt !important;
       line-height: 1.25 !important;
 
     }
@@ -423,19 +444,17 @@ export default function SalesTransactionPage() {
       margin: 0 0 3px 0 !important;
       padding: 0 !important;
 
-      font-family: "Courier New", Courier, monospace !important;
-      font-size: 16px !important;
+      font-size: 16pt !important;
       font-weight: bold !important;
 
-      text-align: center !important;
+      text-align: left !important;
       line-height: 1.2 !important;
     }
 
     .receipt-print-area p {
       margin: 2px 0 !important;
       padding: 0 !important;
-
-      font-size: 10px !important;
+      font-size: 10pt !important;
       line-height: 1.25 !important;
     }
 
@@ -462,7 +481,7 @@ export default function SalesTransactionPage() {
       border: 1px solid #000 !important;
       padding: 4px 5px !important;
 
-      font-size: 10px !important;
+      font-size: 10pt !important;
       line-height: 1.2 !important;
 
       vertical-align: middle !important;
@@ -510,12 +529,12 @@ export default function SalesTransactionPage() {
 
       width: 100% !important;
 
-      font-size: 10px !important;
+      font-size: 10pt !important;
       line-height: 1.3 !important;
     }
 
     .receipt-print-area .receipt-total {
-      font-size: 12px !important;
+      font-size: 12pt !important;
       font-weight: bold !important;
 
       margin-top: 3px !important;
@@ -529,7 +548,7 @@ export default function SalesTransactionPage() {
 
       text-align: center !important;
 
-      font-size: 9px !important;
+      font-size: 9pt !important;
     }
   }
 `}</style>
@@ -539,6 +558,32 @@ export default function SalesTransactionPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <h1 style={{ fontSize: '1.5rem', margin: 0 }}>Transaksi Penjualan</h1>
             <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Penjualan &gt; Transaksi Penjualan</span>
+          </div>
+          {/* Badge status Printer */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '0.4rem',
+            fontSize: '0.8rem', padding: '0.3rem 0.75rem',
+            borderRadius: '999px',
+            background: qzStatus === 'done' ? 'var(--success-light, #d1fae5)'
+              : qzStatus === 'printing' ? 'var(--warning-light, #fef9c3)'
+                : qzStatus === 'error' ? 'var(--danger-light, #fee2e2)'
+                  : 'var(--bg-secondary, #f3f4f6)',
+            color: qzStatus === 'done' ? 'var(--success, #16a34a)'
+              : qzStatus === 'printing' ? 'var(--warning, #ca8a04)'
+                : qzStatus === 'error' ? 'var(--danger, #dc2626)'
+                  : 'var(--text-muted)',
+            border: '1px solid currentColor',
+            fontWeight: 600,
+          }}>
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%', display: 'inline-block',
+              background: 'currentColor',
+              animation: qzStatus === 'printing' ? 'pulse 1s infinite' : 'none',
+            }} />
+            {qzStatus === 'done' && 'Printer: Tercetak'}
+            {qzStatus === 'printing' && 'Printer: Mencetak...'}
+            {qzStatus === 'error' && 'Printer: Gagal (fallback browser)'}
+            {qzStatus === 'idle' && 'Printer: Siap'}
           </div>
         </div>
 
@@ -697,7 +742,7 @@ export default function SalesTransactionPage() {
                     {activeTab === 'BENGKEL' ? (
                       [1, 2, 3, 4, 5].map((lvl) => {
                         if (lvl == 4) {
-                          return <option key={lvl} value={lvl.toString()} selected>{`Harga ${lvl}`}</option>
+                          return <option key={lvl} value={lvl.toString()} defaultValue={lvl}>{`Harga ${lvl}`}</option>
                         }
                         else {
                           return <option key={lvl} value={lvl.toString()}>{`Harga ${lvl}`}</option>
@@ -707,7 +752,8 @@ export default function SalesTransactionPage() {
                     ) : (
                       [1, 2, 3, 4, 5].map((lvl) => {
                         if (lvl == 2) {
-                          return <option key={lvl} value={lvl.toString()} selected>{`Harga ${lvl}`}</option>
+                          return <option key={lvl} value={lvl.toString()} defaultValue={lvl}>{`Harga ${lvl}`}</option>
+
                         }
                         else {
                           return <option key={lvl} value={lvl.toString()}>{`Harga ${lvl}`}</option>
@@ -950,13 +996,13 @@ export default function SalesTransactionPage() {
             display: isPrintReady ? 'block' : 'none',
             position: 'absolute',
             left: '-9999px',
-            top: 0,
-            width: '80mm',
+            top: "40px",
+            width: '75mm',
             overflow: 'hidden'
           }}
         >
-          <div style={{ width: '100%', padding: '1rem', background: '#fff', color: '#000' }}>
-            <h2 style={{ margin: '0 0 0.5rem' }}>MITRA MOTOR </h2>
+          <div style={{ width: '100%', padding: '1rem', background: '#fff', color: '#000', marginTop: "30px" }}>
+            <h2 style={{ margin: '0 0 0.5rem', textAlign: "left" }}>MITRA MOTOR </h2>
             <p style={{ margin: '0 0 0.5rem' }}>Alamat : PONDOK UNGGU PERMAI NO. 7C, KOTA BEKASI, JAWA BARAT, INDONESIA</p>
             <p style={{ margin: '0 0 0.5rem' }}>No.HP : +(62)813-1026-5040</p>
             <hr />
@@ -1015,7 +1061,7 @@ export default function SalesTransactionPage() {
             <hr />
             <hr />
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              <strong style={{ textAlign: 'center', fontSize: "0.4rem" }}>Terima kasih sudah berbelanja di Mitra Motor</strong>
+              <strong style={{ textAlign: 'center' }}>Terima kasih sudah berbelanja di Mitra Motor</strong>
             </div>
           </div>
         </div>
