@@ -58,11 +58,22 @@ echo  Bagikan alamat jaringan di atas ke client.
 echo  Jangan tutup jendela ini selama server aktif.
 echo.
 
-:: Buka browser otomatis setelah 2 detik
-timeout /t 2 /nobreak >nul
+:: Jalankan server production di background
+start "ERP-Server" cmd /c "npm run start"
+
+:: Tunggu sampai server benar-benar ready di port 3000
+echo  Menunggu server siap...
+:wait_loop
+timeout /t 1 /nobreak >nul
+curl -s -o nul -w "%%{http_code}" http://localhost:3000 | findstr /r "^[23]" >nul 2>&1
+if %ERRORLEVEL% NEQ 0 goto wait_loop
+
+:: Server sudah ready, buka browser
+echo  [OK] Server siap! Membuka browser...
 start "" "http://localhost:3000"
 
-:: Jalankan server production
-call npm run start
-
-pause
+:: Tampilkan server window (tetap aktif di foreground)
+echo.
+echo  Server berjalan. Jangan tutup jendela server.
+echo  Tekan tombol apa saja untuk keluar dari launcher ini.
+pause >nul

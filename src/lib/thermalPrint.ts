@@ -9,16 +9,33 @@
 // Nama printer default (sesuai nama di Windows Settings → Printers)
 export const DEFAULT_PRINTER = "EPSON LX-310";
 
-// Lebar karakter per baris (kertas 80mm ≈ 48 char pada 10 CPI)
-const CHARS_PER_LINE = 48;
+// Lebar karakter per baris (Elite 12 CPI pada 80mm ≈ 38 char; dikurangi margin)
+const CHARS_PER_LINE = 70;
+
+// Margin kiri (spasi) yang ditambah di depan setiap baris pada versi teks
+const MARGIN_TEXT = "  "; // 2 spasi untuk fallback teks
+
+// ── Lebar kolom tabel ─────────────────────────────────────────────────────────
+// COL_NAME + COL_QTY + COL_PRICE + COL_TOTAL = CHARS_PER_LINE
+const COL_NAME = 45; // kolom nama produk (wrap otomatis jika lebih panjang)
+const COL_QTY = 5; // kolom qty
+const COL_PRICE = 10; // kolom harga satuan
+const COL_TOTAL = 10; // kolom total
+
 
 // ── ESC/P Command Bytes ───────────────────────────────────────────────────────
 
 /** ESC @ — Reset printer ke kondisi default */
 const ESC_RESET: number[] = [0x1b, 0x40];
 
-/** ESC P — Set Pica (10 CPI) */
-const ESC_PICA: number[] = [0x1b, 0x50];
+/** ESC M — Set Elite (12 CPI) — lebih kecil dari Pica */
+const ESC_ELITE: number[] = [0x1b, 0x4d];
+
+/** SI (0x0F) — Condensed mode: dikombinasikan dengan Elite → ~20 CPI */
+const ESC_CONDENSED: number[] = [0x0f];
+
+/** ESC l n — Set left margin di kolom n */
+const ESC_LEFT_MARGIN: number[] = [0x1b, 0x6c, 3]; // margin 3 kolom dari kiri
 
 /** ESC 2 — Set line spacing 1/6 inch */
 const ESC_LINE_SPACING: number[] = [0x1b, 0x32];
@@ -31,9 +48,6 @@ const ESC_BOLD_OFF: number[] = [0x1b, 0x46];
 
 /** CR + LF — Carriage return + newline */
 const CRLF: number[] = [0x0d, 0x0a];
-
-/** FF — Form Feed (eject kertas) */
-const FORM_FEED: number[] = [0x0c];
 
 // ── Text Helpers ──────────────────────────────────────────────────────────────
 
@@ -54,22 +68,15 @@ function justify(left: string, right: string, width = CHARS_PER_LINE): string {
   return left + " ".repeat(space) + right;
 }
 
-/** Wrap text ke multiple baris */
-function wrap(text: string, width = CHARS_PER_LINE): string[] {
-  const lines: string[] = [];
-  while (text.length > 0) {
-    lines.push(text.slice(0, width));
-    text = text.slice(width);
-  }
-  return lines;
-}
-
 /** Format angka ke Rupiah tanpa simbol */
 function rp(num: number): string {
   return Number(num).toLocaleString("id-ID");
 }
 
-/** Format satu baris tabel item: nama | qty | harga | total */
+/**
+ * Format satu baris tabel item: nama | qty | harga | total
+ * Nama produk yang panjang di-wrap ke baris berikutnya.
+ */
 function formatItem(
   name: string,
   qty: number,
@@ -80,25 +87,25 @@ function formatItem(
   const priceStr = rp(price);
   const totalStr = rp(total);
 
-  const nameWidth = 24;
-  const qtyWidth = 4;
-  const priceWidth = 10;
-  const totalWidth = 10;
-
   const lines: string[] = [];
 
-  const nameChunks =
-    name.length > nameWidth
-      ? [name.slice(0, nameWidth), ...wrap(name.slice(nameWidth), nameWidth)]
-      : [name];
+  // Potong nama per COL_NAME karakter, wrap ke baris berikut jika panjang
+  const nameChunks: string[] = [];
+  let remaining = name;
+  while (remaining.length > 0) {
+    nameChunks.push(remaining.slice(0, COL_NAME));
+    remaining = remaining.slice(COL_NAME);
+  }
 
   nameChunks.forEach((chunk, i) => {
-    const namePart = chunk.padEnd(nameWidth);
+    const namePart = chunk.padEnd(COL_NAME);
     if (i === 0) {
-      const qtyPart = qtyStr.padStart(qtyWidth);
-      const pricePart = priceStr.padStart(priceWidth);
-      const totalPart = totalStr.padStart(totalWidth);
-      lines.push(namePart + qtyPart + pricePart + totalPart);
+      lines.push(
+        namePart +
+        qtyStr.padStart(COL_QTY) +
+        priceStr.padStart(COL_PRICE) +
+        totalStr.padStart(COL_TOTAL)
+      );
     } else {
       lines.push(namePart);
     }
@@ -112,29 +119,27 @@ function formatItem(
 export function generateReceiptText(receiptData: any): string {
   const lines: string[] = [];
 
-  const add = (line: string) => lines.push(line);
+  // Semua baris diberi margin kiri
+  const add = (line: string) => lines.push(MARGIN_TEXT + line);
   const blank = () => lines.push("");
 
   // Header
-  add(center("MITRA MOTOR"));
-  add(center("Pondok Unggu Permai No. 7C"));
-  add(center("Kota Bekasi, Jawa Barat"));
-  add(center("Tel: +62 813-1026-5040"));
+  add("MITRA MOTOR");
   add(sep());
 
   // Info transaksi
   add(`No  : ${receiptData.sales_number || "-"}`);
   add(`Tgl : ${new Date(receiptData.sales_datetime).toLocaleString("id-ID")}`);
-  add(`Kasir   : ${receiptData.cashier_name_snapshot || "-"}`);
-  add(`Customer: ${receiptData.customer_name_snapshot || "Pelanggan Umum"}`);
+  add(`Cust: ${receiptData.customer_name_snapshot || "Pelanggan Umum"}`);
   add(sep());
 
   // Header tabel
-  const hName = "Produk".padEnd(24);
-  const hQty = "Qty".padStart(4);
-  const hPrice = "Harga".padStart(10);
-  const hTotal = "Total".padStart(10);
-  add(hName + hQty + hPrice + hTotal);
+  add(
+    "Produk".padEnd(COL_NAME) +
+    "Qty".padStart(COL_QTY) +
+    "Harga".padStart(COL_PRICE) +
+    "Total".padStart(COL_TOTAL)
+  );
   add(sep("-"));
 
   // Item-item
@@ -152,31 +157,12 @@ export function generateReceiptText(receiptData: any): string {
   add(sep());
 
   // Summary
-  add(justify("Subtotal", `Rp ${rp(receiptData.subtotal)}`));
-  add(justify("Diskon", `Rp ${rp(receiptData.discount_amount || 0)}`));
   add(justify("TOTAL", `Rp ${rp(receiptData.total_amount)}`));
 
-  const payment = receiptData.payments?.[0];
-  if (payment) {
-    const method = payment.payment_method || "-";
-    add(
-      justify(
-        `Bayar (${method})`,
-        `Rp ${rp(payment.tendered_amount || receiptData.total_amount)}`
-      )
-    );
-    if (payment.change_amount !== undefined) {
-      add(justify("Kembalian", `Rp ${rp(payment.change_amount)}`));
-    }
-  }
-
   add(sep());
-  blank();
-  add(center("Terima kasih sudah berbelanja"));
-  add(center("di Mitra Motor"));
-  blank();
-  blank();
-  blank(); // Feed ekstra supaya kertas keluar cukup
+  add(center("Terima kasih sudah berbelanja di Mitra Motor"));
+  // add(center("di Mitra Motor"));
+  blank(); // 1 baris feed
 
   return lines.join("\n");
 }
@@ -198,44 +184,36 @@ export function generateEscpBytes(receiptData: any): Uint8Array {
     }
   };
   const nl = () => push(...CRLF);
-  const addLine = (str: string) => {
-    pushStr(str);
-    nl();
-  };
+  const addLine = (str: string) => { pushStr(str); nl(); };
   const blank = () => nl();
 
-  // Init
+  // Init: reset → Elite → Condensed → left margin → line spacing
   push(...ESC_RESET);
-  push(...ESC_PICA);
+  push(...ESC_ELITE);
+  push(...ESC_CONDENSED);
+  push(...ESC_LEFT_MARGIN);
   push(...ESC_LINE_SPACING);
 
   // Header — bold
   push(...ESC_BOLD_ON);
-  addLine(center("MITRA MOTOR"));
+  addLine("MITRA MOTOR");
   push(...ESC_BOLD_OFF);
-  addLine(center("Pondok Unggu Permai No. 7C"));
-  addLine(center("Kota Bekasi, Jawa Barat"));
-  addLine(center("Tel: +62 813-1026-5040"));
   addLine(sep());
 
   // Info transaksi
   addLine(`No  : ${receiptData.sales_number || "-"}`);
-  addLine(
-    `Tgl : ${new Date(receiptData.sales_datetime).toLocaleString("id-ID")}`
-  );
-  addLine(`Kasir   : ${receiptData.cashier_name_snapshot || "-"}`);
-  addLine(
-    `Customer: ${receiptData.customer_name_snapshot || "Pelanggan Umum"}`
-  );
+  addLine(`Tgl : ${new Date(receiptData.sales_datetime).toLocaleString("id-ID")}`);
+  addLine(`Cust: ${receiptData.customer_name_snapshot || "Pelanggan Umum"}`);
   addLine(sep());
 
-  // Header tabel
-  const hName = "Produk".padEnd(24);
-  const hQty = "Qty".padStart(4);
-  const hPrice = "Harga".padStart(10);
-  const hTotal = "Total".padStart(10);
+  // Header tabel — bold
   push(...ESC_BOLD_ON);
-  addLine(hName + hQty + hPrice + hTotal);
+  addLine(
+    "Produk".padEnd(COL_NAME) +
+    "Qty".padStart(COL_QTY) +
+    "Harga".padStart(COL_PRICE) +
+    "Total".padStart(COL_TOTAL)
+  );
   push(...ESC_BOLD_OFF);
   addLine(sep("-"));
 
@@ -254,36 +232,14 @@ export function generateEscpBytes(receiptData: any): Uint8Array {
   addLine(sep());
 
   // Summary
-  addLine(justify("Subtotal", `Rp ${rp(receiptData.subtotal)}`));
-  addLine(justify("Diskon", `Rp ${rp(receiptData.discount_amount || 0)}`));
   push(...ESC_BOLD_ON);
   addLine(justify("TOTAL", `Rp ${rp(receiptData.total_amount)}`));
   push(...ESC_BOLD_OFF);
 
-  const payment = receiptData.payments?.[0];
-  if (payment) {
-    const method = payment.payment_method || "-";
-    addLine(
-      justify(
-        `Bayar (${method})`,
-        `Rp ${rp(payment.tendered_amount || receiptData.total_amount)}`
-      )
-    );
-    if (payment.change_amount !== undefined) {
-      addLine(justify("Kembalian", `Rp ${rp(payment.change_amount)}`));
-    }
-  }
-
   addLine(sep());
-  blank();
-  addLine(center("Terima kasih sudah berbelanja"));
-  addLine(center("di Mitra Motor"));
-  blank();
-  blank();
-  blank(); // Feed ekstra
-
-  // Form feed — eject kertas
-  push(...FORM_FEED);
+  addLine(center("Terima kasih sudah berbelanja di Mitra Motor"));
+  // addLine(center("di Mitra Motor"));
+  blank(); // 1 baris feed — berhenti di sini
 
   return new Uint8Array(bytes);
 }
