@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { exportToCSV } from '@/lib/exportExcel';
 import DataTableClient from '@/components/DataTableClient';
+import * as ThermalPrint from '@/lib/thermalPrint';
+import Swal from 'sweetalert2';
 
 const PRINT_STYLE = `
 @media print {
@@ -67,6 +69,11 @@ export default function SalesReport() {
   // Selected Transaction Detail State
   const [selectedSaleDetail, setSelectedSaleDetail] = useState<any | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  // Printer & Reprint State
+  const [qzStatus, setQzStatus] = useState<'idle' | 'printing' | 'done' | 'error'>('idle');
+  const [printReceiptData, setPrintReceiptData] = useState<any | null>(null);
+  const [isPrintReceiptReady, setIsPrintReceiptReady] = useState(false);
 
   const getField = (item: any, key: string) => {
     switch (key) {
@@ -161,6 +168,141 @@ export default function SalesReport() {
 
   const handlePrint = () => window.print();
 
+  // Print Receipt handler
+  const handlePrintReceipt = async (sale: any) => {
+    if (!sale) return;
+    setQzStatus('printing');
+    try {
+      // Panggil server-side printing
+      await ThermalPrint.printReceipt(sale);
+      setQzStatus('done');
+      Swal.fire({
+        icon: 'success',
+        title: 'Cetak Struk Berhasil',
+        text: 'Permintaan cetak struk telah dikirim ke printer.',
+        timer: 2000,
+        showConfirmButton: false,
+      });
+      // Reset status setelah 3 detik
+      setTimeout(() => setQzStatus('idle'), 3000);
+    } catch (err) {
+      console.warn('[Thermal Print] Gagal, fallback ke window.print():', err);
+      setQzStatus('error');
+      
+      // Persiapkan data cetak browser
+      setPrintReceiptData(sale);
+      setIsPrintReceiptReady(true);
+      
+      // Tambahkan style override print khusus struk
+      const styleId = 'receipt-print-override-style';
+      let styleEl = document.getElementById(styleId);
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = styleId;
+        styleEl.innerHTML = `
+          @media print {
+            @page {
+              size: 75mm auto !important;
+              margin: 0 !important;
+            }
+            html, body {
+              display: block !important;
+              width: 75mm !important;
+              height: auto !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #fff !important;
+              color: #000 !important;
+            }
+            body * {
+              visibility: hidden !important;
+            }
+            .no-print, .print-section, .report-view, .sales-main-content, aside, header, nav, .card {
+              display: none !important;
+            }
+            #receipt-reprint-area, #receipt-reprint-area * {
+              visibility: visible !important;
+            }
+            #receipt-reprint-area {
+              display: block !important;
+              position: fixed !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 75mm !important;
+              max-width: 75mm !important;
+              box-sizing: border-box !important;
+              margin: 0 !important;
+              padding: 4mm 3mm !important;
+              overflow: visible !important;
+              background: #fff !important;
+              color: #000 !important;
+              font-family: sans-serif;
+              font-size: 10pt !important;
+              line-height: 1.25 !important;
+            }
+            #receipt-reprint-area table {
+              width: 100% !important;
+              border-collapse: collapse !important;
+              margin: 7px 0 !important;
+              table-layout: fixed !important;
+            }
+            #receipt-reprint-area th, #receipt-reprint-area td {
+              border: 1px solid #000 !important;
+              padding: 4px 5px !important;
+              font-size: 9pt !important;
+              vertical-align: middle !important;
+              word-break: break-word !important;
+              overflow-wrap: break-word !important;
+            }
+            #receipt-reprint-area th:first-child, #receipt-reprint-area td:first-child {
+              width: 44% !important;
+              text-align: left !important;
+            }
+            #receipt-reprint-area th:nth-child(2), #receipt-reprint-area td:nth-child(2) {
+              width: 12% !important;
+              text-align: center !important;
+            }
+            #receipt-reprint-area th:nth-child(3), #receipt-reprint-area td:nth-child(3) {
+              width: 22% !important;
+              text-align: right !important;
+            }
+            #receipt-reprint-area th:nth-child(4), #receipt-reprint-area td:nth-child(4) {
+              width: 22% !important;
+              text-align: right !important;
+            }
+            #receipt-reprint-area hr {
+              border: 0 !important;
+              border-top: 1px dashed #000 !important;
+              margin: 5px 0 !important;
+            }
+          }
+        `;
+        document.head.appendChild(styleEl);
+      }
+
+      // Trigger print dialog
+      setTimeout(() => {
+        window.print();
+      }, 500);
+    }
+  };
+
+  useEffect(() => {
+    const afterPrint = () => {
+      setIsPrintReceiptReady(false);
+      setPrintReceiptData(null);
+      setQzStatus('idle');
+      
+      // Clean up the dynamic receipt style override if it exists
+      const styleEl = document.getElementById('receipt-print-override-style');
+      if (styleEl) {
+        styleEl.remove();
+      }
+    };
+    window.addEventListener('afterprint', afterPrint);
+    return () => window.removeEventListener('afterprint', afterPrint);
+  }, []);
+
   useEffect(() => {
     setPrintDate(
       new Date().toLocaleString('id-ID', {
@@ -219,13 +361,31 @@ export default function SalesReport() {
               <h3 style={{ fontSize: '1.1rem', color: 'var(--primary)', margin: 0, fontWeight: 700 }}>
                 Rincian Transaksi: {selectedSaleDetail.sales_number}
               </h3>
-              <button
-                className="btn btn-secondary"
-                onClick={() => setSelectedSaleDetail(null)}
-                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
-              >
-                ✖ Tutup Detail
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => handlePrintReceipt(selectedSaleDetail)}
+                  disabled={qzStatus === 'printing'}
+                  style={{
+                    padding: '0.4rem 0.8rem',
+                    fontSize: '0.8rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    background: qzStatus === 'done' ? '#10b981' : qzStatus === 'error' ? '#ef4444' : 'var(--primary)',
+                    borderColor: qzStatus === 'done' ? '#10b981' : qzStatus === 'error' ? '#ef4444' : 'var(--primary)'
+                  }}
+                >
+                  {qzStatus === 'printing' ? '⏳ Mencetak...' : qzStatus === 'done' ? '✅ Struk Tercetak' : qzStatus === 'error' ? '🖨️ Cetak Ulang (Browser)' : '🖨️ Cetak Struk'}
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setSelectedSaleDetail(null)}
+                  style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                >
+                  ✖ Tutup Detail
+                </button>
+              </div>
             </div>
 
             {/* Info Summary Grid */}
@@ -414,6 +574,89 @@ export default function SalesReport() {
             Total {data.length} transaksi
           </p>
         </div>
+
+        {/* Reprint receipt area for browser print fallback */}
+        {printReceiptData && (
+          <div
+            id="receipt-reprint-area"
+            style={{
+              display: isPrintReceiptReady ? 'block' : 'none',
+              position: 'absolute',
+              left: '-9999px',
+              top: '40px',
+              width: '75mm',
+              overflow: 'hidden'
+            }}
+          >
+            <div style={{ width: '100%', padding: '1rem', background: '#fff', color: '#000', marginTop: '30px' }}>
+              <h2 style={{ margin: '0 0 0.5rem', textAlign: 'left', fontSize: '16pt', fontWeight: 'bold' }}>MITRA MOTOR </h2>
+              <p style={{ margin: '0 0 0.5rem', fontSize: '10pt' }}>Alamat : PONDOK UNGGU PERMAI NO. 7C, KOTA BEKASI, JAWA BARAT, INDONESIA</p>
+              <p style={{ margin: '0 0 0.5rem', fontSize: '10pt' }}>No.HP : +(62)813-1026-5040</p>
+              <hr style={{ border: '0', borderTop: '1px dashed #000', margin: '5px 0' }} />
+              <hr style={{ border: '0', borderTop: '1px dashed #000', margin: '5px 0' }} />
+              <p style={{ margin: '0.25rem 0', marginTop: '25px', fontSize: '10pt' }}>No. Transaksi: <strong>{printReceiptData.sales_number}</strong></p>
+              <p style={{ margin: '0.25rem 0', fontSize: '10pt' }}>Tanggal: <strong>{printReceiptData.sales_datetime ? new Date(printReceiptData.sales_datetime).toLocaleString('id-ID') : '-'}</strong></p>
+              <p style={{ margin: '0.25rem 0', fontSize: '10pt' }}>Kasir: <strong>{printReceiptData.cashier_name_snapshot || printReceiptData.cashier?.full_name || '-'}</strong></p>
+              <p style={{ margin: '0.25rem 0', fontSize: '10pt' }}>Customer: <strong>{printReceiptData.customer_name_snapshot || printReceiptData.customer?.customer_name || 'Pelanggan Umum'}</strong></p>
+
+              <table style={{ width: '100%', margin: '7px 0', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', border: '1px solid #000', padding: '4px 5px', fontSize: '9pt' }}>Produk</th>
+                    <th style={{ textAlign: 'center', border: '1px solid #000', padding: '4px 5px', fontSize: '9pt' }}>Qty</th>
+                    <th style={{ textAlign: 'right', border: '1px solid #000', padding: '4px 5px', fontSize: '9pt' }}>Harga</th>
+                    <th style={{ textAlign: 'right', border: '1px solid #000', padding: '4px 5px', fontSize: '9pt' }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(printReceiptData.details || []).map((item: any, index: number) => {
+                    const qty = item.quantity || item.sold_quantity || 0;
+                    const price = Number(item.unit_price || 0);
+                    const lineTotal = Number(item.line_total || qty * price);
+                    return (
+                      <tr key={index}>
+                        <td style={{ border: '1px solid #000', padding: '4px 5px', fontSize: '9pt' }}>{item.product_name_snapshot || item.product?.product_name || '-'}</td>
+                        <td style={{ textAlign: 'center', border: '1px solid #000', padding: '4px 5px', fontSize: '9pt' }}>{qty}</td>
+                        <td style={{ textAlign: 'right', border: '1px solid #000', padding: '4px 5px', fontSize: '9pt' }}>{price.toLocaleString('id-ID')}</td>
+                        <td style={{ textAlign: 'right', border: '1px solid #000', padding: '4px 5px', fontSize: '9pt' }}>{lineTotal.toLocaleString('id-ID')}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              <div style={{ marginTop: '1rem', display: 'grid', gap: '0.5rem', fontSize: '10pt' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Subtotal</span>
+                  <strong>Rp {Number(printReceiptData.subtotal || 0).toLocaleString('id-ID')}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Diskon</span>
+                  <strong>Rp {Number(printReceiptData.discount_amount || 0).toLocaleString('id-ID')}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Total</span>
+                  <strong>Rp {Number(printReceiptData.total_amount || 0).toLocaleString('id-ID')}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Bayar ({printReceiptData.payments?.[0]?.payment_method || '-'})</span>
+                  <strong>Rp {Number(printReceiptData.payments?.[0]?.tendered_amount || printReceiptData.total_amount).toLocaleString('id-ID')}</strong>
+                </div>
+                {printReceiptData.payments?.[0] && printReceiptData.payments[0].change_amount !== undefined && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Kembalian</span>
+                    <strong>Rp {Number(printReceiptData.payments[0].change_amount).toLocaleString('id-ID')}</strong>
+                  </div>
+                )}
+              </div>
+              <hr style={{ border: '0', borderTop: '1px dashed #000', margin: '5px 0' }} />
+              <hr style={{ border: '0', borderTop: '1px dashed #000', margin: '5px 0' }} />
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '9pt' }}>
+                <strong style={{ textAlign: 'center' }}>Terima kasih sudah berbelanja di Mitra Motor</strong>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </>

@@ -172,16 +172,16 @@ export default function SalesTransactionPage() {
       return;
     }
 
-    const confirmAdd = await Swal.fire({
-      title: 'Konfirmasi',
-      text: 'Tambahkan produk ini ke keranjang?',
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Ya, tambahkan',
-      cancelButtonText: 'Batal',
-    });
+    // const confirmAdd = await Swal.fire({
+    //   title: 'Konfirmasi',
+    //   text: 'Tambahkan produk ini ke keranjang?',
+    //   icon: 'question',
+    //   showCancelButton: true,
+    //   confirmButtonText: 'Ya, tambahkan',
+    //   cancelButtonText: 'Batal',
+    // });
 
-    if (!confirmAdd.isConfirmed) return;
+    // if (!confirmAdd.isConfirmed) return;
 
     // Check if already in cart
     const existingIndex = cart.findIndex(c => c.product_id === selectedProduct.product_id);
