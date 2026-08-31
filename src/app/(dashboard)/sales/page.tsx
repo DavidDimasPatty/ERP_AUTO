@@ -21,7 +21,7 @@ export default function SalesTransactionPage() {
   const [cart, setCart] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
-  const [selectedPriceLevel, setSelectedPriceLevel] = useState('1');
+  const [selectedPriceLevel, setSelectedPriceLevel] = useState('2');
   const [customPrice, setCustomPrice] = useState('');
 
   // Payment State
@@ -361,7 +361,7 @@ export default function SalesTransactionPage() {
       setDiscountAmount(0);
       setNotes('');
       setActiveTab("ECERAN");
-      setSelectedPriceLevel("1");
+      setSelectedPriceLevel("2");
       setPaymentMethod("CASH");
     } catch (err: any) {
       setErrorMsg(err.message);
@@ -623,7 +623,7 @@ export default function SalesTransactionPage() {
                     return;
                   }
                   setActiveTab(nextTab);
-                  setSelectedPriceLevel('3'); // BENGKEL default harga 3
+                  setSelectedPriceLevel('4'); // BENGKEL default harga 3
                 }}
             >
               Penjualan Bengkel
@@ -635,7 +635,7 @@ export default function SalesTransactionPage() {
                 color: activeTab === 'ECERAN' ? 'var(--primary)' : 'var(--text-secondary)',
                 fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', fontSize: '0.85rem'
               }}
-              onClick={() => { setActiveTab('ECERAN'); setSelectedPriceLevel('1'); }}
+              onClick={() => { setActiveTab('ECERAN'); setSelectedPriceLevel('2'); }}
             >
               Penjualan Eceran
             </button>

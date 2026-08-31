@@ -441,13 +441,13 @@ export default function SalesByProductReportPage() {
 
           {/* Export & Print */}
           <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
-            {/* <button
+            <button
               className="btn btn-secondary"
               onClick={handleExportCSV}
               style={{ color: '#16a34a', borderColor: '#16a34a' }}
             >
               📊 Export CSV
-            </button> */}
+            </button>
             <button className="btn btn-primary" onClick={handlePrint} disabled={isPrinting}>
               {isPrinting ? 'Menyiapkan...' : '🖨️ Cetak / PDF'}
             </button>
@@ -465,14 +465,14 @@ export default function SalesByProductReportPage() {
             </div>
           </div>
 
-          <div className="card" style={{ padding: '1rem', borderLeft: '4px solid #3b82f6' }}>
+          {/* <div className="card" style={{ padding: '1rem', borderLeft: '4px solid #3b82f6' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
               Jumlah Transaksi
             </span>
             <div style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: '0.25rem' }}>
               {grandTotals.totalTransactions} <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--text-muted)' }}>trx</span>
             </div>
-          </div>
+          </div> */}
 
           <div className="card" style={{ padding: '1rem', borderLeft: '4px solid #f59e0b' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
@@ -483,14 +483,14 @@ export default function SalesByProductReportPage() {
             </div>
           </div>
 
-          <div className="card" style={{ padding: '1rem', borderLeft: '4px solid #10b981' }}>
+          {/* <div className="card" style={{ padding: '1rem', borderLeft: '4px solid #10b981' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
               Total Omset Penjualan
             </span>
             <div style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: '0.25rem', color: '#10b981' }}>
               Rp {grandTotals.totalSales.toLocaleString('id-ID')}
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Top Info Bar for Pagination / Record count */}
